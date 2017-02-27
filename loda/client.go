@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lodastack/router/config"
 	"github.com/lodastack/router/requests"
 
 	"github.com/lodastack/log"
@@ -17,8 +16,12 @@ const CommonCluster = "common"
 const DefaultDBNameSpace = "db.monitor.loda"
 const MachineUri = "/api/v1/router/resource?ns=%s&type=machine"
 
-var PurgeChan chan string
-var Client *client
+var (
+	PurgeChan    chan string
+	Client       *client
+	RegistryAddr string
+	ExpireDur    int
+)
 
 type client struct {
 	// cache ns -> dbs in this map
@@ -41,7 +44,9 @@ type Server struct {
 	Hostname string `json:"hostname"`
 }
 
-func init() {
+func Init(regAddr string, expireDur int) {
+	RegistryAddr = regAddr
+	ExpireDur = expireDur
 	PurgeChan = make(chan string)
 	Client = &client{
 		db: make(map[string][]string),
@@ -50,7 +55,7 @@ func init() {
 
 func PurgeAll() {
 	var ticker *time.Ticker
-	interval := config.GetConfig().Reg.ExpireDur
+	interval := ExpireDur
 	if interval < 60 {
 		interval = 60
 	}
@@ -59,7 +64,7 @@ func PurgeAll() {
 	for {
 		select {
 		case <-ticker.C:
-			url := fmt.Sprintf("%s/api/v1/router/ns?ns=&format=list", config.GetConfig().Reg.Link)
+			url := fmt.Sprintf("%s/api/v1/router/ns?ns=&format=list", RegistryAddr)
 			res, err := allNS(url)
 			if err == nil {
 				log.Infof("DB old cache: %v", Client.db)
@@ -118,19 +123,19 @@ func updateInfluxDBs(ns string) ([]string, error) {
 	}
 	partone := list[len(list)-2]
 	uri := fmt.Sprintf(MachineUri, partone+"."+DefaultDBNameSpace)
-	url := fmt.Sprintf("%s%s", config.GetConfig().Reg.Link, uri)
+	url := fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err := servers(url)
 	if err != nil || len(res) > 0 {
 		return res, err
 	}
 
-	url = fmt.Sprintf("%s/api/v1/router/ns?ns=%s&format=list", config.GetConfig().Reg.Link, DefaultDBNameSpace)
+	url = fmt.Sprintf("%s/api/v1/router/ns?ns=%s&format=list", RegistryAddr, DefaultDBNameSpace)
 	res, err = allNS(url)
 	if err == nil {
 		ok, cluster := includeNS(partone, res)
 		if ok {
 			uri = fmt.Sprintf(MachineUri, cluster+"."+DefaultDBNameSpace)
-			url = fmt.Sprintf("%s%s", config.GetConfig().Reg.Link, uri)
+			url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 			res, err = servers(url)
 			if err != nil || len(res) > 0 {
 				return res, err
@@ -142,7 +147,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 
 	// Send to common cluster if not found customer cluster
 	uri = fmt.Sprintf(MachineUri, CommonCluster+"."+DefaultDBNameSpace)
-	url = fmt.Sprintf("%s%s", config.GetConfig().Reg.Link, uri)
+	url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err = servers(url)
 	if err != nil || len(res) > 0 {
 		return res, err

@@ -48,6 +48,7 @@ func main() {
 	m := worker.NewMaster()
 	go m.Start()
 	go query.Start()
+	loda.Init(config.GetConfig().Reg.Link, config.GetConfig().Reg.ExpireDur)
 	go loda.PurgeAll()
 	select {}
 }
