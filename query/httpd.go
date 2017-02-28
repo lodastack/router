@@ -97,15 +97,13 @@ func cors(inner http.Handler) http.Handler {
 }
 
 func addHandlers() {
-	prefix := "/router"
-
-	http.Handle(prefix+"/ping", cors(http.HandlerFunc(servePing)))
-	http.Handle(prefix+"/stats", cors(http.HandlerFunc(statsHandler)))
-	http.Handle(prefix+"/series", cors(http.HandlerFunc(seriesHandler)))
-	http.Handle(prefix+"/tags", cors(http.HandlerFunc(tagsHandler)))
-	http.Handle(prefix+"/query", cors(http.HandlerFunc(queryHandler)))
-	http.Handle(prefix+"/query2", cors(http.HandlerFunc(query2Handler)))
-	http.Handle(prefix+"/measurement", cors(http.HandlerFunc(deleteMeasurementHandler)))
+	http.Handle("/ping", cors(http.HandlerFunc(servePing)))
+	http.Handle("/stats", cors(http.HandlerFunc(statsHandler)))
+	http.Handle("/series", cors(http.HandlerFunc(seriesHandler)))
+	http.Handle("/tags", cors(http.HandlerFunc(tagsHandler)))
+	http.Handle("/query", cors(http.HandlerFunc(queryHandler)))
+	http.Handle("/query2", cors(http.HandlerFunc(query2Handler)))
+	http.Handle("/measurement", cors(http.HandlerFunc(deleteMeasurementHandler)))
 }
 
 func Start() {
