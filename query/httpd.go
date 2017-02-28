@@ -99,7 +99,7 @@ func cors(inner http.Handler) http.Handler {
 func addHandlers() {
 	prefix := "/router"
 
-	http.Handle("/query", cors(http.HandlerFunc(queryHandler)))
+	http.Handle(prefix+"/ping", cors(http.HandlerFunc(servePing)))
 	http.Handle(prefix+"/stats", cors(http.HandlerFunc(statsHandler)))
 	http.Handle(prefix+"/series", cors(http.HandlerFunc(seriesHandler)))
 	http.Handle(prefix+"/tags", cors(http.HandlerFunc(tagsHandler)))

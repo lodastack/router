@@ -9,6 +9,11 @@ import (
 	"github.com/lodastack/router/loda"
 )
 
+// servePing returns a simple response to let the client know the server is running.
+func servePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // @desc get measurement tags from influxdb deps on ns name
 // @router /tags [get]
 func tagsHandler(resp http.ResponseWriter, req *http.Request) {
