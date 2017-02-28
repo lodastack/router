@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
@@ -144,8 +145,8 @@ func deleteMeasurementHandler(resp http.ResponseWriter, req *http.Request) {
 // @desc origin query for influxdb
 // @router /query [get]
 func queryHandler(resp http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
-		errResp(resp, http.StatusMethodNotAllowed, "Get please!")
+	if req.Method != "GET" && req.Method != "POST" {
+		errResp(resp, http.StatusMethodNotAllowed, "Get or Post please!")
 		return
 	}
 
@@ -158,9 +159,12 @@ func queryHandler(resp http.ResponseWriter, req *http.Request) {
 	cluster := params.Get("cluster")
 	_ns := params.Get("db")
 
-	if len(cluster) == 0 && len(_ns) == 0 {
-		errResp(resp, http.StatusBadRequest, "cluster or db please")
-		return
+	if len(_ns) == 0 {
+		_ns, err = parseDB(params.Get("q"))
+		if err != nil {
+			errResp(resp, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	var ns string
@@ -194,6 +198,16 @@ func queryHandler(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Add("Content-Type", "application/json")
 	resp.WriteHeader(status)
 	resp.Write(rs)
+}
+
+func parseDB(q string) (string, error) {
+	list := strings.Split(q, " ")
+	for _, str := range list {
+		if strings.HasPrefix(str, "\"collect.") {
+			return str, nil
+		}
+	}
+	return "", fmt.Errorf("can not found db from params q")
 }
 
 // @desc origin query for influxdb
