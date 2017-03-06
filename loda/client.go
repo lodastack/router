@@ -15,6 +15,7 @@ import (
 const CommonCluster = "common"
 const DefaultDBNameSpace = "db.monitor.loda"
 const MachineUri = "/api/v1/router/resource?ns=%s&type=machine"
+const CollectUri = "/api/v1/router/resource?ns=%s&type=collect"
 
 var (
 	PurgeChan    chan string
@@ -153,7 +154,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 		return res, err
 	}
 
-	return []string{"influxdb.ifengidc.com"}, fmt.Errorf("common cluster status != 200")
+	return res, fmt.Errorf("common cluster status != 200")
 }
 
 func servers(url string) ([]string, error) {
@@ -209,4 +210,38 @@ func includeNS(nsPartOne string, dbs []string) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+type CollectMetric struct {
+	Name     string `json:"name"`
+	Interval string `json:"interval"`
+}
+
+type RespCollect struct {
+	Status int             `json:"httpstatus"`
+	Data   []CollectMetric `json:"data"`
+}
+
+func CollectMetrics(ns string) ([]CollectMetric, error) {
+	var res []CollectMetric
+	var data RespCollect
+
+	// remove "collect." from NS
+	ns = strings.TrimPrefix(ns, "collect.")
+
+	uri := fmt.Sprintf(CollectUri, ns)
+	url := fmt.Sprintf("%s%s", RegistryAddr, uri)
+	resp, err := requests.Get(url)
+	if err != nil {
+		return res, err
+	}
+
+	if resp.Status == 200 {
+		err := json.Unmarshal(resp.Body, &data)
+		if err != nil {
+			return res, err
+		}
+		return data.Data, nil
+	}
+	return res, fmt.Errorf("get collect %s failed: status:%d", ns, resp.Status)
 }
