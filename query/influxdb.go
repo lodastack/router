@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lodastack/log"
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
-	//"github.com/lodastack/log"
 )
 
 func getTagsFromInfDb(ns, mt string) (map[string][]interface{}, error) {
@@ -175,6 +175,12 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 		return nil, nil
 	}
 
+	// get all collects from registry
+	ms, err := loda.CollectMetrics(ns)
+	if err != nil {
+		log.Error(err)
+	}
+
 	mNames := make(map[string]map[string]detail)
 	for _, value := range values {
 		v, ok := value.([]interface{})
@@ -190,9 +196,9 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 			continue
 		}
 
-		// if strings.HasSuffix(mName, config.GetConfig().Com.HiddenMetricSuffix) {
-		// 	continue
-		// }
+		if !existInRegistry(mName, ms) {
+			continue
+		}
 
 		mNameParts := strings.Split(mName, ".")
 		key := transKey(mNameParts[0])
@@ -203,6 +209,21 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 		mNames[key][mName] = d
 	}
 	return mNames, nil
+}
+
+func existInRegistry(metricName string, ms []loda.CollectMetric) bool {
+	if len(ms) == 0 {
+		return true
+	}
+	for _, m := range ms {
+		if strings.HasPrefix(metricName, "RUN.") {
+			return true
+		}
+		if strings.HasPrefix(metricName, m.Name) {
+			return true
+		}
+	}
+	return false
 }
 
 func queryInfluxDb(influxdbs []string, params map[string][]string, ip string) (int, []byte, error) {
