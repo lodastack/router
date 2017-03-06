@@ -49,6 +49,8 @@ func transKey(key string) string {
 		return "插件监控"
 	case "proc":
 		return "进程监控"
+	case "run":
+		return "监控上报"
 	default:
 		return "其他系统监控"
 	}
@@ -98,6 +100,8 @@ func Detail(key string) detail {
 	case "net.in":
 		d.Unit = "bit"
 	case "kernel.files.allocated.percent":
+		d.Unit = "%"
+	case "RUN.ping.loss":
 		d.Unit = "%"
 	}
 	return d

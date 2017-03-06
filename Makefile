@@ -4,6 +4,7 @@ fmt:
 	gofmt -l -w -s */
 
 build: fmt 
+	gdm restore
 	cd cmd/router && go build -v
 
 install: fmt
