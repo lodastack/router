@@ -68,7 +68,6 @@ func PurgeAll() {
 			url := fmt.Sprintf("%s/api/v1/router/ns?ns=&format=list", RegistryAddr)
 			res, err := allNS(url)
 			if err == nil {
-				log.Infof("DB old cache: %v", Client.db)
 				for _, ns := range res {
 					dbs, err := updateInfluxDBs(ns)
 					if err == nil {
