@@ -1,11 +1,14 @@
 package query
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lodastack/router/config"
@@ -74,6 +77,68 @@ func accessLog(inner http.Handler) http.Handler {
 	})
 }
 
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+// WriteHeader sets the provided code as the response status. If the
+// specified status is 204 No Content, then the Content-Encoding header
+// is removed from the response, to prevent clients expecting gzipped
+// encoded bodies from trying to deflate an empty response.
+func (w gzipResponseWriter) WriteHeader(code int) {
+	if code != http.StatusNoContent {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func (w gzipResponseWriter) Flush() {
+	w.Writer.(*gzip.Writer).Flush()
+	if w, ok := w.ResponseWriter.(http.Flusher); ok {
+		w.Flush()
+	}
+}
+
+func (w gzipResponseWriter) CloseNotify() <-chan bool {
+	return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
+}
+
+// gzipFilter determines if the client can accept compressed responses, and encodes accordingly.
+func gzipFilter(inner http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			inner.ServeHTTP(w, r)
+			return
+		}
+		gz := getGzipWriter(w)
+		defer putGzipWriter(gz)
+		gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		inner.ServeHTTP(gzw, r)
+	})
+}
+
+var gzipWriterPool = sync.Pool{
+	New: func() interface{} {
+		return gzip.NewWriter(nil)
+	},
+}
+
+func getGzipWriter(w io.Writer) *gzip.Writer {
+	gz := gzipWriterPool.Get().(*gzip.Writer)
+	gz.Reset(w)
+	return gz
+}
+
+func putGzipWriter(gz *gzip.Writer) {
+	gz.Close()
+	gzipWriterPool.Put(gz)
+}
+
 func cors(inner http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
@@ -110,13 +175,13 @@ func cors(inner http.Handler) http.Handler {
 }
 
 func addHandlers() {
-	http.Handle("/ping", accessLog(cors(http.HandlerFunc(servePing))))
-	http.Handle("/stats", accessLog(cors(http.HandlerFunc(statsHandler))))
-	http.Handle("/series", accessLog(cors(http.HandlerFunc(seriesHandler))))
-	http.Handle("/tags", accessLog(cors(http.HandlerFunc(tagsHandler))))
-	http.Handle("/query", accessLog(cors(http.HandlerFunc(queryHandler))))
-	http.Handle("/query2", accessLog(cors(http.HandlerFunc(query2Handler))))
-	http.Handle("/measurement", accessLog(cors(http.HandlerFunc(deleteMeasurementHandler))))
+	http.Handle("/ping", accessLog(gzipFilter(cors(http.HandlerFunc(servePing)))))
+	http.Handle("/stats", accessLog(gzipFilter(cors(http.HandlerFunc(statsHandler)))))
+	http.Handle("/series", accessLog(gzipFilter(cors(http.HandlerFunc(seriesHandler)))))
+	http.Handle("/tags", accessLog(gzipFilter(cors(http.HandlerFunc(tagsHandler)))))
+	http.Handle("/query", accessLog(gzipFilter(cors(http.HandlerFunc(queryHandler)))))
+	http.Handle("/query2", accessLog(gzipFilter(cors(http.HandlerFunc(query2Handler)))))
+	http.Handle("/measurement", accessLog(gzipFilter(cors(http.HandlerFunc(deleteMeasurementHandler)))))
 }
 
 func Start() {
