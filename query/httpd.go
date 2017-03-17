@@ -61,6 +61,19 @@ func (this *responseWriter) WriteHeader(code int) {
 	this.ResponseWriter.WriteHeader(code)
 }
 
+func accessLog(inner http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stime := time.Now().UnixNano() / 1e3
+		inner.ServeHTTP(w, r)
+		dur := time.Now().UnixNano()/1e3 - stime
+		if dur <= 1e3 {
+			log.Infof("access %s path %s in %d us\n", r.Method, r.URL.Path, dur)
+		} else {
+			log.Infof("access %s path %s in %d ms\n", r.Method, r.URL.Path, dur/1e3)
+		}
+	})
+}
+
 func cors(inner http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
@@ -97,13 +110,13 @@ func cors(inner http.Handler) http.Handler {
 }
 
 func addHandlers() {
-	http.Handle("/ping", cors(http.HandlerFunc(servePing)))
-	http.Handle("/stats", cors(http.HandlerFunc(statsHandler)))
-	http.Handle("/series", cors(http.HandlerFunc(seriesHandler)))
-	http.Handle("/tags", cors(http.HandlerFunc(tagsHandler)))
-	http.Handle("/query", cors(http.HandlerFunc(queryHandler)))
-	http.Handle("/query2", cors(http.HandlerFunc(query2Handler)))
-	http.Handle("/measurement", cors(http.HandlerFunc(deleteMeasurementHandler)))
+	http.Handle("/ping", accessLog(cors(http.HandlerFunc(servePing))))
+	http.Handle("/stats", accessLog(cors(http.HandlerFunc(statsHandler))))
+	http.Handle("/series", accessLog(cors(http.HandlerFunc(seriesHandler))))
+	http.Handle("/tags", accessLog(cors(http.HandlerFunc(tagsHandler))))
+	http.Handle("/query", accessLog(cors(http.HandlerFunc(queryHandler))))
+	http.Handle("/query2", accessLog(cors(http.HandlerFunc(query2Handler))))
+	http.Handle("/measurement", accessLog(cors(http.HandlerFunc(deleteMeasurementHandler))))
 }
 
 func Start() {
