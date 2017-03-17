@@ -151,8 +151,7 @@ func writePoints(influxDb string, db string, precision string, data []byte, poin
 		return fmt.Errorf("Influxdb returned invalid status code: %v", resp.Status)
 	} else if resp.Status == 204 {
 		log.Debug(string(data))
-		log.Info(fmt.Sprintf("%d return by %s", resp.Status, influxDb))
-		log.Infof("handle points %d", pointsCnt)
+		log.Infof("%d return by %s ,handle points %d", resp.Status, influxDb, pointsCnt)
 		return nil
 	} else if (resp.Status == 200 || resp.Status == 404) && strings.Contains(string(resp.Body), "database not found") {
 		err := createDbAndRP([]string{influxDb}, db)
