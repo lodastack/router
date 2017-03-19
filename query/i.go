@@ -120,7 +120,7 @@ func Parse(response *QueryResult) *QueryResult {
 						p.Time = pair[0]
 						p.Value = SetPrecision(v, 4)
 						response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
-						response.Results[i].Series[j].Values = nil
+						//response.Results[i].Series[j].Values = nil
 					}
 				}
 			}
