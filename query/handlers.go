@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
+
+	"github.com/lodastack/log"
 )
 
 // servePing returns a simple response to let the client know the server is running.
@@ -290,4 +293,77 @@ func query2Handler(resp http.ResponseWriter, req *http.Request) {
 // @router /stats [get]
 func statsHandler(resp http.ResponseWriter, req *http.Request) {
 	succResp(resp, "OK", nil)
+}
+
+func coreHandler(resp http.ResponseWriter, req *http.Request) {
+	starttime := req.FormValue("starttime")
+	endtime := req.FormValue("endtime")
+	s, err := strconv.ParseInt(starttime, 10, 64)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+	e, err := strconv.ParseInt(endtime, 10, 64)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ns := "collect.api.loda"
+
+	// DB route
+	influxdbs, err := loda.InfluxDBs(ns)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if len(influxdbs) == 0 {
+		errResp(resp, 400, ns+" has no influxdb route config")
+		return
+	}
+
+	series, err := getSeriesFromInfDb(ns)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+	m := make(map[string]float64)
+	for name := range series["监控上报"] {
+		if strings.HasSuffix(name, ".alive") {
+			query := fmt.Sprintf("SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)",
+				name, starttime, endtime, "1m")
+			p := url.Values{}
+			p.Set("q", query)
+			p.Set("db", ns)
+			p.Set("epoch", "s")
+			p.Set("pretty", "true")
+
+			req.URL.RawQuery = p.Encode()
+			_, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"))
+			if err != nil {
+				log.Errorf(err.Error())
+				continue
+			}
+			var failedCount float64
+			for _, result := range rs.Results {
+				for _, serie := range result.Series {
+					for _, pair := range serie.Values {
+						if len(pair) == 2 {
+							if v, ok := pair[1].(float64); ok {
+								if v == 0 {
+									failedCount++
+								}
+							}
+						}
+					}
+				}
+			}
+
+			totalCount := float64((e - s) / 1000 / 60)
+			m[name] = SetPrecision((totalCount-failedCount)/totalCount*100, 8)
+			log.Debugf("failed conut: %v", failedCount)
+		}
+	}
+	succResp(resp, "OK", m)
 }

@@ -182,6 +182,9 @@ func addHandlers() {
 	http.Handle("/query", accessLog(gzipFilter(cors(http.HandlerFunc(queryHandler)))))
 	http.Handle("/query2", accessLog(gzipFilter(cors(http.HandlerFunc(query2Handler)))))
 	http.Handle("/measurement", accessLog(gzipFilter(cors(http.HandlerFunc(deleteMeasurementHandler)))))
+
+	// custom API
+	http.Handle("/core", accessLog(gzipFilter(cors(http.HandlerFunc(coreHandler)))))
 }
 
 func Start() {
