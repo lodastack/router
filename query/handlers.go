@@ -277,7 +277,7 @@ func query2Handler(resp http.ResponseWriter, req *http.Request) {
 	// p.Set("chunked", "true")
 	// p.Set("chunk_size", "200000000000000000")
 	req.URL.RawQuery = p.Encode()
-	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"))
+	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), true)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
@@ -340,7 +340,7 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 			p.Set("pretty", "true")
 
 			req.URL.RawQuery = p.Encode()
-			_, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"))
+			_, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), false)
 			if err != nil {
 				log.Errorf(err.Error())
 				continue

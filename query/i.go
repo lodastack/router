@@ -65,7 +65,7 @@ type Point struct {
 	Value interface{} `json:"value"`
 }
 
-func queryInfluxDB(influxdbs []string, params map[string][]string, ip string) (int, QueryResult, error) {
+func queryInfluxDB(influxdbs []string, params map[string][]string, ip string, parse bool) (int, QueryResult, error) {
 	var response QueryResult
 	queryParams := make(map[string]string)
 	for k, v := range params {
@@ -92,9 +92,12 @@ func queryInfluxDB(influxdbs []string, params map[string][]string, ip string) (i
 		return 500, response, response.Err
 	}
 
-	res := Parse(&response)
+	if parse {
+		res := Parse(&response)
+		return resp.StatusCode, *res, nil
+	}
 
-	return resp.StatusCode, *res, nil
+	return resp.StatusCode, response, nil
 }
 
 func HttpDo(hosts []string, params map[string]string, ip string) (*http.Response, error) {
@@ -120,7 +123,7 @@ func Parse(response *QueryResult) *QueryResult {
 						p.Time = pair[0]
 						p.Value = SetPrecision(v, 4)
 						response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
-						//response.Results[i].Series[j].Values = nil
+						response.Results[i].Series[j].Values = nil
 					}
 				}
 			}
