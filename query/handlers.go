@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
@@ -298,40 +299,57 @@ func statsHandler(resp http.ResponseWriter, req *http.Request) {
 func coreHandler(resp http.ResponseWriter, req *http.Request) {
 	starttime := req.FormValue("starttime")
 	endtime := req.FormValue("endtime")
-	s, err := strconv.ParseInt(starttime, 10, 64)
+	ns := req.FormValue("ns")
+
+	if ns == "" {
+		ns = "api.loda"
+	}
+
+	if ns == "api.loda" {
+		if res := globalCache.Get("collect." + ns + starttime + endtime); res != nil {
+			succResp(resp, "OK", res)
+			return
+		}
+	}
+
+	ns = "collect." + ns
+	m, err := HA(ns, starttime, endtime)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
+	}
+	succResp(resp, "OK", m)
+}
+
+func HA(ns string, starttime string, endtime string) (map[string]float64, error) {
+	m := make(map[string]float64)
+	s, err := strconv.ParseInt(starttime, 10, 64)
+	if err != nil {
+		return m, err
 	}
 	e, err := strconv.ParseInt(endtime, 10, 64)
 	if err != nil {
-		errResp(resp, http.StatusInternalServerError, err.Error())
-		return
+		return m, err
 	}
-
-	ns := "collect.api.loda"
 
 	// DB route
 	influxdbs, err := loda.InfluxDBs(ns)
 	if err != nil {
-		errResp(resp, http.StatusInternalServerError, err.Error())
-		return
+		return m, err
 	}
 
 	if len(influxdbs) == 0 {
-		errResp(resp, 400, ns+" has no influxdb route config")
-		return
+		return m, fmt.Errorf(ns + " has no influxdb route config")
 	}
 
 	series, err := getSeriesFromInfDb(ns)
 	if err != nil {
-		errResp(resp, http.StatusInternalServerError, err.Error())
-		return
+		return m, err
 	}
-	m := make(map[string]float64)
+
 	for name := range series["监控上报"] {
 		if strings.HasSuffix(name, ".alive") {
-			query := fmt.Sprintf("SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)",
+			query := fmt.Sprintf("select * from (SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)) where \"mean\"=0",
 				name, starttime, endtime, "1m")
 			p := url.Values{}
 			p.Set("q", query)
@@ -339,8 +357,8 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 			p.Set("epoch", "s")
 			p.Set("pretty", "true")
 
-			req.URL.RawQuery = p.Encode()
-			_, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), false)
+			p.Encode()
+			_, rs, err := queryInfluxDB(influxdbs, p, "", false)
 			if err != nil {
 				log.Errorf(err.Error())
 				continue
@@ -348,15 +366,7 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 			var failedCount float64
 			for _, result := range rs.Results {
 				for _, serie := range result.Series {
-					for _, pair := range serie.Values {
-						if len(pair) == 2 {
-							if v, ok := pair[1].(float64); ok {
-								if v == 0 {
-									failedCount++
-								}
-							}
-						}
-					}
+					failedCount = failedCount + float64(len(serie.Values))
 				}
 			}
 
@@ -365,5 +375,16 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 			log.Debugf("failed conut: %v", failedCount)
 		}
 	}
-	succResp(resp, "OK", m)
+	globalCache.Set(ns+starttime+endtime, m)
+	return m, nil
+}
+
+func purgeCache() {
+	ticker := time.NewTicker(time.Duration(60) * time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+			globalCache.Purge()
+		}
+	}
 }
