@@ -187,7 +187,11 @@ func addHandlers() {
 	http.Handle("/core", accessLog(gzipFilter(cors(http.HandlerFunc(coreHandler)))))
 }
 
+var globalCache *Cache
+
 func Start() {
+	globalCache = NewCache()
+	go purgeCache()
 	bind := fmt.Sprintf("%s", config.GetConfig().Com.Listen)
 	log.Infof("http start on %s!\n", bind)
 
