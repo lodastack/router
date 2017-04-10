@@ -2,67 +2,18 @@ package query
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/lodastack/router/config"
-
+	"github.com/julienschmidt/httprouter"
 	"github.com/lodastack/log"
 )
-
-type Response struct {
-	StatusCode int         `json:"httpstatus"`
-	Msg        string      `json:"msg"`
-	Data       interface{} `json:"data"`
-}
-
-func errResp(resp http.ResponseWriter, status int, msg string) {
-	response := Response{
-		StatusCode: status,
-		Msg:        msg,
-		Data:       nil,
-	}
-	bytes, _ := json.Marshal(&response)
-	resp.Header().Add("Content-Type", "application/json")
-	resp.WriteHeader(status)
-	resp.Write(bytes)
-}
-
-func succResp(resp http.ResponseWriter, msg string, data interface{}) {
-	response := Response{
-		StatusCode: http.StatusOK,
-		Msg:        msg,
-		Data:       data,
-	}
-	bytes, _ := json.Marshal(&response)
-	resp.Header().Add("Content-Type", "application/json")
-	resp.WriteHeader(http.StatusOK)
-	resp.Write(bytes)
-}
-
-func getTimeDurMs(start time.Time, end time.Time) float64 {
-	return float64((end.UnixNano() - start.UnixNano()) / 1e6)
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func newResponseWriter(w http.ResponseWriter) *responseWriter {
-	return &responseWriter{w, http.StatusOK}
-}
-
-func (this *responseWriter) WriteHeader(code int) {
-	this.statusCode = code
-	this.ResponseWriter.WriteHeader(code)
-}
 
 func accessLog(inner http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -174,30 +125,54 @@ func cors(inner http.Handler) http.Handler {
 	})
 }
 
-func addHandlers() {
-	http.Handle("/ping", accessLog(gzipFilter(cors(http.HandlerFunc(servePing)))))
-	http.Handle("/stats", accessLog(gzipFilter(cors(http.HandlerFunc(statsHandler)))))
-	http.Handle("/series", accessLog(gzipFilter(cors(http.HandlerFunc(seriesHandler)))))
-	http.Handle("/tags", accessLog(gzipFilter(cors(http.HandlerFunc(tagsHandler)))))
-	http.Handle("/query", accessLog(gzipFilter(cors(http.HandlerFunc(queryHandler)))))
-	http.Handle("/query2", accessLog(gzipFilter(cors(http.HandlerFunc(query2Handler)))))
-	http.Handle("/measurement", accessLog(gzipFilter(cors(http.HandlerFunc(deleteMeasurementHandler)))))
+func (s *Service) initHandler() {
+	s.router.GET("/ping", s.servePing)
+	s.router.GET("/stats", s.statsHandler)
+	s.router.GET("/series", s.seriesHandler)
+	s.router.GET("/tags", s.tagsHandler)
+	s.router.DELETE("/tags", s.tagsHandler)
+	s.router.DELETE("/measurement", s.deleteMeasurementHandler)
+
+	s.router.GET("/query", s.queryHandler)
+	s.router.POST("/query", s.queryHandler)
+	s.router.GET("/query2", s.query2Handler)
+	s.router.POST("/query2", s.query2Handler)
 
 	// custom API
-	http.Handle("/core", accessLog(gzipFilter(cors(http.HandlerFunc(coreHandler)))))
+	s.router.GET("/core", s.coreHandler)
 }
 
-var globalCache *Cache
+// Service provides HTTP service.
+type Service struct {
+	addr string
+	ln   net.Listener
 
-func Start() {
-	globalCache = NewCache()
-	go purgeCache()
-	bind := fmt.Sprintf("%s", config.GetConfig().Com.Listen)
-	log.Infof("http start on %s!\n", bind)
+	c      *Cache
+	router *httprouter.Router
 
-	addHandlers()
+	logger *log.Logger
+}
 
-	err := http.ListenAndServe(bind, nil)
+func New(listen string) (*Service, error) {
+	return &Service{
+		addr:   listen,
+		c:      NewCache(),
+		router: httprouter.New(),
+	}, nil
+}
+
+func (s *Service) Start() {
+	go s.c.purgeTimer()
+	s.initHandler()
+	server := http.Server{}
+	server.Handler = accessLog(gzipFilter(cors(s.router)))
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		panic("Listen failed:" + err.Error())
+	}
+	s.ln = ln
+	log.Infof("http start on %s!\n", s.addr)
+	err = server.Serve(s.ln)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "http start failed:\n%s\n", err.Error())
 	}

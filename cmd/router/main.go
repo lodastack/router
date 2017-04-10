@@ -47,7 +47,11 @@ func main() {
 	fmt.Println("build via golang version ", runtime.Version())
 	m := worker.NewMaster()
 	go m.Start()
-	go query.Start()
+	httpd, err := query.New(config.GetConfig().Com.Listen)
+	if err != nil {
+		panic(err)
+	}
+	go httpd.Start()
 	loda.Init(config.GetConfig().Reg.Link, config.GetConfig().Reg.ExpireDur)
 	go loda.PurgeAll()
 	select {}
