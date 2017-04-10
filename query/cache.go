@@ -3,6 +3,7 @@ package query
 
 import (
 	"sync"
+	"time"
 )
 
 type Cache struct {
@@ -37,4 +38,14 @@ func (c *Cache) Purge() {
 	c.mu.Lock()
 	c.item = make(map[string]interface{})
 	c.mu.Unlock()
+}
+
+func (c *Cache) purgeTimer() {
+	ticker := time.NewTicker(time.Duration(60) * time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+			c.Purge()
+		}
+	}
 }

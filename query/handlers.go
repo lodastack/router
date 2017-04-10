@@ -6,22 +6,22 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/lodastack/log"
 )
 
 // servePing returns a simple response to let the client know the server is running.
-func servePing(w http.ResponseWriter, r *http.Request) {
+func (s *Service) servePing(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // @desc get measurement tags from influxdb deps on ns name
 // @router /tags [get]
-func tagsHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) tagsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" && req.Method != "DELETE" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or delete please!")
 		return
@@ -68,7 +68,7 @@ func tagsHandler(resp http.ResponseWriter, req *http.Request) {
 
 // @desc get series from influxdb deps on ns name
 // @router /series [get]
-func seriesHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) seriesHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get please!")
 		return
@@ -95,7 +95,7 @@ func seriesHandler(resp http.ResponseWriter, req *http.Request) {
 
 // @desc drop measurement
 // @router /measurement [delete]
-func deleteMeasurementHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) deleteMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "DELETE" {
 		errResp(resp, http.StatusMethodNotAllowed, "Delete please!")
 		return
@@ -148,7 +148,7 @@ func deleteMeasurementHandler(resp http.ResponseWriter, req *http.Request) {
 
 // @desc origin query for influxdb
 // @router /query [get]
-func queryHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" && req.Method != "POST" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or Post please!")
 		return
@@ -216,7 +216,7 @@ func parseDB(q string) (string, error) {
 
 // @desc origin query for influxdb
 // @router /query2 [get]
-func query2Handler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" && req.Method != "POST" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or POST please!")
 		return
@@ -292,11 +292,11 @@ func query2Handler(resp http.ResponseWriter, req *http.Request) {
 
 // @desc health check
 // @router /stats [get]
-func statsHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) statsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	succResp(resp, "OK", nil)
 }
 
-func coreHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *Service) coreHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	starttime := req.FormValue("starttime")
 	endtime := req.FormValue("endtime")
 	ns := req.FormValue("ns")
@@ -306,14 +306,14 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if ns == "api.loda" {
-		if res := globalCache.Get("collect." + ns + starttime + endtime); res != nil {
+		if res := s.c.Get("collect." + ns + starttime + endtime); res != nil {
 			succResp(resp, "OK", res)
 			return
 		}
 	}
 
 	ns = "collect." + ns
-	m, err := HA(ns, starttime, endtime)
+	m, err := s.HA(ns, starttime, endtime)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
@@ -321,7 +321,7 @@ func coreHandler(resp http.ResponseWriter, req *http.Request) {
 	succResp(resp, "OK", m)
 }
 
-func HA(ns string, starttime string, endtime string) (map[string]float64, error) {
+func (se *Service) HA(ns string, starttime string, endtime string) (map[string]float64, error) {
 	m := make(map[string]float64)
 	s, err := strconv.ParseInt(starttime, 10, 64)
 	if err != nil {
@@ -375,16 +375,6 @@ func HA(ns string, starttime string, endtime string) (map[string]float64, error)
 			log.Debugf("failed conut: %v", failedCount)
 		}
 	}
-	globalCache.Set(ns+starttime+endtime, m)
+	se.c.Set(ns+starttime+endtime, m)
 	return m, nil
-}
-
-func purgeCache() {
-	ticker := time.NewTicker(time.Duration(60) * time.Minute)
-	for {
-		select {
-		case <-ticker.C:
-			globalCache.Purge()
-		}
-	}
 }
