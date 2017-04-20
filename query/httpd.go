@@ -140,6 +140,7 @@ func (s *Service) initHandler() {
 
 	// custom API
 	s.router.GET("/core", s.coreHandler)
+	s.router.GET("/usage", s.usageHandler)
 }
 
 // Service provides HTTP service.

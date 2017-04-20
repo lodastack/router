@@ -268,7 +268,6 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 		errResp(resp, 500, ns+" new query failed: "+err.Error())
 		return
 	}
-	fmt.Println(query)
 
 	p := url.Values{}
 	p.Set("q", query)
@@ -377,4 +376,75 @@ func (se *Service) HA(ns string, starttime string, endtime string) (map[string]f
 	}
 	se.c.Set(ns+starttime+endtime, m)
 	return m, nil
+}
+
+func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	if req.Method != "GET" && req.Method != "POST" {
+		errResp(resp, http.StatusMethodNotAllowed, "Get or POST please!")
+		return
+	}
+
+	ns := req.FormValue("ns")
+	measurement := req.FormValue("measurement")
+	fn := req.FormValue("fn")
+	period := req.FormValue("period")
+	duration := req.FormValue("duration")
+	period = "1d"
+	duration = "1h"
+
+	if len(ns) == 0 || len(measurement) == 0 || len(fn) == 0 {
+		errResp(resp, http.StatusBadRequest, "need params")
+		return
+	}
+
+	influxdbs, err := loda.InfluxDBs(ns)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if len(influxdbs) == 0 {
+		errResp(resp, 400, ns+" has no influxdb route config")
+		return
+	}
+
+	tags, err := getTagsFromInfDb(ns, measurement)
+	if err != nil {
+		errResp(resp, 500, ns+" get tags failed: "+err.Error())
+		return
+	}
+
+	if len(tags) > 4 {
+		//test
+		errResp(resp, 500, ns+" tag > 4")
+		return
+	}
+
+	var tagkeys []string
+	for tagkey := range tags {
+		tagkeys = append(tagkeys, tagkey)
+	}
+
+	query, err := NewUsageQuery(measurement, fn, period, duration)
+	if err != nil {
+		errResp(resp, 500, ns+" new query failed: "+err.Error())
+		return
+	}
+	p := url.Values{}
+	p.Set("q", query)
+	p.Set("db", ns)
+	p.Set("epoch", "s")
+	p.Set("pretty", "true")
+
+	req.URL.RawQuery = p.Encode()
+	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), true)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// just return the origin influxdb rs
+	resp.Header().Add("Content-Type", "application/json")
+	succResp(resp, "OK", rs)
+	resp.WriteHeader(status)
 }
