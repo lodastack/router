@@ -20,6 +20,7 @@ var (
 type Config struct {
 	Com CommonConfig   `toml:"common"`
 	Reg RegistryConfig `toml:"registry"`
+	Usg UsageConfig    `toml:"usage"`
 	Nsq NsqConfig      `toml:"nsq"`
 	Log LogConfig      `toml:"log"`
 }
@@ -42,6 +43,10 @@ type LogConfig struct {
 type RegistryConfig struct {
 	Link      string `toml:"link"`
 	ExpireDur int    `toml:"expireDur"`
+}
+
+type UsageConfig struct {
+	Enable bool `toml:"enable"`
 }
 
 type NsqConfig struct {
