@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lodastack/router/config"
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
 
@@ -379,8 +380,8 @@ func (se *Service) HA(ns string, starttime string, endtime string) (map[string]f
 }
 
 func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	if req.Method != "GET" && req.Method != "POST" {
-		errResp(resp, http.StatusMethodNotAllowed, "Get or POST please!")
+	if !config.GetConfig().Usg.Enable {
+		errResp(resp, 403, "no permission")
 		return
 	}
 
@@ -389,7 +390,31 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	fn := req.FormValue("fn")
 	period := req.FormValue("period")
 	duration := req.FormValue("duration")
-	period = "1d"
+
+	starttime := req.FormValue("starttime")
+	endtime := req.FormValue("endtime")
+
+	st, err := strconv.ParseInt(starttime, 10, 64)
+	if err != nil {
+		log.Errorf("[usage] %s starttime format error", starttime)
+		errResp(resp, http.StatusBadRequest, "params error")
+		return
+	}
+	et, err := strconv.ParseInt(endtime, 10, 64)
+	if err != nil {
+		log.Errorf("[usage] %s endtime format error", endtime)
+		errResp(resp, http.StatusBadRequest, "params error")
+		return
+	}
+
+	// can not greater than 1day(unit:ms)
+	if et-st > 24*60*60*1000 {
+		log.Errorf("[usage] %s - %s > 1d", endtime, starttime)
+		errResp(resp, http.StatusBadRequest, "params error")
+		return
+	}
+
+	//period = "1d"
 	duration = "1h"
 
 	if len(ns) == 0 || len(measurement) == 0 || len(fn) == 0 {
@@ -415,7 +440,6 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	}
 
 	if len(tags) > 4 {
-		//test
 		errResp(resp, 500, ns+" tag > 4")
 		return
 	}
@@ -425,11 +449,12 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		tagkeys = append(tagkeys, tagkey)
 	}
 
-	query, err := NewUsageQuery(measurement, fn, period, duration)
+	query, err := NewUsageQuery(measurement, fn, period, duration, starttime, endtime)
 	if err != nil {
 		errResp(resp, 500, ns+" new query failed: "+err.Error())
 		return
 	}
+	log.Errorf("[usage] query: %s", query)
 	p := url.Values{}
 	p.Set("q", query)
 	p.Set("db", ns)
