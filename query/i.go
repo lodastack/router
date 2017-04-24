@@ -36,10 +36,15 @@ func NewQuery(measurement string, start string, end string, tags []string, where
 	return rawQuery, nil
 }
 
-func NewUsageQuery(measurement string, fn string, period string, duration string, stime string, etime string) (string, error) {
-	//select max("value") from "cpu.idle" where time> now() - 1d group by "host",time(1h);
-	rawQuery := fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY \"host\",time(%s)",
-		fn, measurement, stime, etime, duration)
+func NewUsageQuery(measurement, fn, period, duration, stime, etime string, groupby []string) (string, error) {
+	//select max("value") from "cpu.idle" where time> now() - 1d group by "host","tag",time(1h);
+	groupBy := "\"host\""
+	for _, tag := range groupby {
+		groupBy = groupBy + ",\"" + tag + "\""
+	}
+
+	rawQuery := fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY %s,time(%s)",
+		fn, measurement, stime, etime, groupBy, duration)
 	return rawQuery, nil
 }
 
