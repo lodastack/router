@@ -390,6 +390,7 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	fn := req.FormValue("fn")
 	period := req.FormValue("period")
 	duration := req.FormValue("duration")
+	groupby := req.FormValue("groupby")
 
 	starttime := req.FormValue("starttime")
 	endtime := req.FormValue("endtime")
@@ -449,7 +450,11 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		tagkeys = append(tagkeys, tagkey)
 	}
 
-	query, err := NewUsageQuery(measurement, fn, period, duration, starttime, endtime)
+	var groupByList []string
+	if groupby != "" {
+		groupByList = strings.Split(groupby, ",")
+	}
+	query, err := NewUsageQuery(measurement, fn, period, duration, starttime, endtime, groupByList)
 	if err != nil {
 		errResp(resp, 500, ns+" new query failed: "+err.Error())
 		return
