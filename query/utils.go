@@ -66,6 +66,12 @@ type detail struct {
 func Detail(key string) detail {
 	var d detail
 
+	// switch unit
+	if strings.HasPrefix(key, "RUN.net.traffic.") {
+		d.Unit = "bit"
+		return d
+	}
+
 	switch strings.ToLower(key) {
 	case "cpu.idle":
 		d.Unit = "%"
@@ -101,7 +107,7 @@ func Detail(key string) detail {
 		d.Unit = "bit"
 	case "kernel.files.allocated.percent":
 		d.Unit = "%"
-	case "RUN.ping.loss":
+	case "run.ping.loss":
 		d.Unit = "%"
 	}
 	return d
