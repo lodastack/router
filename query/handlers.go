@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -370,7 +371,7 @@ func (se *Service) HA(ns string, starttime string, endtime string) (map[string]f
 				}
 			}
 
-			totalCount := float64((e - s) / 1000 / 60)
+			totalCount := math.Ceil(float64(e-s) / 1000 / 60)
 			m[name] = SetPrecision((totalCount-failedCount)/totalCount*100, 8)
 			log.Debugf("failed conut: %v", failedCount)
 		}
