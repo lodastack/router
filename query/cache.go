@@ -41,7 +41,8 @@ func (c *Cache) Purge() {
 }
 
 func (c *Cache) purgeTimer() {
-	ticker := time.NewTicker(time.Duration(60) * time.Minute)
+	// cache 6 hours
+	ticker := time.NewTicker(time.Duration(360) * time.Minute)
 	for {
 		select {
 		case <-ticker.C:
