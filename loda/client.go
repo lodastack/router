@@ -78,7 +78,9 @@ func PurgeAll() {
 						log.Errorf("update ns: %s cache failed: %s", ns, err)
 					}
 				}
+				Client.mu.RLock()
 				log.Infof("DB new cache: %v", Client.db)
+				Client.mu.RUnlock()
 			} else {
 				log.Errorf("Get all NS failed: %s", err)
 			}
