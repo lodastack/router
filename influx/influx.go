@@ -14,6 +14,14 @@ import (
 	"github.com/lodastack/log"
 )
 
+var limit Fixed
+
+const defaultWorkerNum = 2000
+
+func init() {
+	limit = NewFixed(defaultWorkerNum)
+}
+
 // Regular expression to match intranet IP Address
 // include: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
 const REGIntrannetIP = `^((192\.168|172\.([1][6-9]|[2]\d|3[01]))(\.([2][0-4]\d|[2][5][0-5]|[01]?\d?\d)){2}|10(\.([2][0-4]\d|[2][5][0-5]|[01]?\d?\d)){3})$`
@@ -129,13 +137,16 @@ func WritePoints(influxDbs []string, pointsObj models.Points) error {
 	// write data to mutile DBs
 	if len(influxDbs) > 1 {
 		for _, indexDB := range influxDbs[1:] {
+			limit.Take()
 			go writePoints(indexDB, db, precision, data, pointsCnt)
 		}
 	}
+	limit.Take()
 	return writePoints(influxDb, db, precision, data, pointsCnt)
 }
 
 func writePoints(influxDb string, db string, precision string, data []byte, pointsCnt int) error {
+	defer limit.Release()
 	fullUrl := fmt.Sprintf("%s?%s", GetWriteUrl(influxDb), ParseParams(map[string]string{
 		"db":        db,
 		"precision": precision,
