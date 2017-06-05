@@ -16,7 +16,7 @@ import (
 
 var limit Fixed
 
-const defaultWorkerNum = 2000
+const defaultWorkerNum = 10000
 
 func init() {
 	limit = NewFixed(defaultWorkerNum)
