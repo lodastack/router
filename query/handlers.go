@@ -162,6 +162,11 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		return
 	}
 
+	if strings.Contains(strings.ToLower(params.Get("q")), "drop ") {
+		errResp(resp, http.StatusBadRequest, "ah, Don't support drop")
+		return
+	}
+
 	cluster := params.Get("cluster")
 	_ns := params.Get("db")
 
