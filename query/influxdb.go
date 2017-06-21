@@ -208,6 +208,20 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 		}
 		mNames[key][mName] = d
 	}
+
+	// only exist in registry, need display
+	for _, m := range ms {
+		if strings.HasPrefix(m.Name, "PLUGIN.") {
+			mNameParts := strings.Split(m.Name, ".")
+			key := transKey(mNameParts[0])
+			d := Detail(m.Name)
+			if _, ok := mNames[key]; !ok {
+				mNames[key] = make(map[string]detail)
+			}
+			mNames[key][m.Name] = d
+		}
+	}
+
 	return mNames, nil
 }
 
