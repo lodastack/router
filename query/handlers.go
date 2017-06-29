@@ -214,8 +214,11 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 func parseDB(q string) (string, error) {
 	list := strings.Split(q, " ")
 	for _, str := range list {
-		if strings.HasPrefix(str, "\"collect.") {
-			return str, nil
+		if !strings.HasPrefix(str, "\"collect.") {
+			continue
+		}
+		if dbIndex := strings.Index(str, "\"."); dbIndex != -1 {
+			return str[1:dbIndex], nil
 		}
 	}
 	return "", fmt.Errorf("can not found db from params q")
