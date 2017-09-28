@@ -1,16 +1,58 @@
 package query
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
+	"github.com/grafana/grafana/pkg/tsdb"
 	"github.com/lodastack/log"
 	"github.com/lodastack/router/influx"
 	"github.com/lodastack/router/loda"
 )
 
-func getTagsFromInfDb(ns, mt string) (map[string][]interface{}, error) {
+// NewQuery only return about 1500 points
+func NewQuery(measurement string, start string, end string, tags []string, where string, fn string, fill string) (string, error) {
+
+	tr := tsdb.NewTimeRange(start, end)
+	interval := tsdb.CalculateInterval(tr)
+
+	if fn == "" {
+		fn = "mean"
+	}
+	if fill == "" {
+		fill = "null"
+	}
+
+	var filterTags []string
+	for _, tagkey := range tags {
+		filterTags = append(filterTags, fmt.Sprintf("\"%s\"", tagkey))
+	}
+
+	rawQuery := fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s) fill(%s)",
+		fn, measurement, start, end, interval, fill)
+	if where != "" {
+		rawQuery = fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE %s AND time > %sms and time < %sms GROUP BY time(%s), %s fill(%s)",
+			fn, measurement, where, start, end, interval, strings.Join(filterTags, ","), fill)
+	}
+	return rawQuery, nil
+}
+
+// NewUsageQuery is customer API for customer system
+func NewUsageQuery(measurement, fn, period, duration, stime, etime string, groupby []string) (string, error) {
+	//select max("value") from "cpu.idle" where time> now() - 1d group by "host","tag",time(1h);
+	groupBy := "\"host\""
+	for _, tag := range groupby {
+		groupBy = groupBy + ",\"" + tag + "\""
+	}
+
+	rawQuery := fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY %s,time(%s)",
+		fn, measurement, stime, etime, groupBy, duration)
+	return rawQuery, nil
+}
+
+func tags(ns, mt string) (map[string][]interface{}, error) {
 	influxdbs, err := loda.InfluxDBs(ns)
 	if err != nil {
 		return nil, err
@@ -91,7 +133,7 @@ func getTagsFromInfDb(ns, mt string) (map[string][]interface{}, error) {
 	return tagsMap, nil
 }
 
-func deleteTagsFromInfDb(ns string, mt string, tag string, tagvalue string) error {
+func removeTags(ns string, mt string, tag string, tagvalue string) error {
 	if tag != "host" {
 		return nil
 	}
@@ -105,7 +147,7 @@ func deleteTagsFromInfDb(ns string, mt string, tag string, tagvalue string) erro
 		return fmt.Errorf("%s has no route config", ns)
 	}
 
-	values, err := getMetricsFromInfDb(ns)
+	values, err := getMeasurementsFromInfluxDB(ns)
 	if err != nil {
 		return err
 	}
@@ -135,7 +177,7 @@ func deleteTagsFromInfDb(ns string, mt string, tag string, tagvalue string) erro
 	return nil
 }
 
-func getMetricsFromInfDb(ns string) ([]interface{}, error) {
+func getMeasurementsFromInfluxDB(ns string) ([]interface{}, error) {
 	influxdbs, err := loda.InfluxDBs(ns)
 	if err != nil {
 		return nil, err
@@ -165,8 +207,8 @@ func getMetricsFromInfDb(ns string) ([]interface{}, error) {
 	return rs.Results[0].Series[0].Values, nil
 }
 
-func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
-	values, err := getMetricsFromInfDb(ns)
+func measurements(ns string) (map[string]map[string]Detail, error) {
+	values, err := getMeasurementsFromInfluxDB(ns)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +223,7 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 		log.Error(err)
 	}
 
-	mNames := make(map[string]map[string]detail)
+	mNames := make(map[string]map[string]Detail)
 	for _, value := range values {
 		v, ok := value.([]interface{})
 		if !ok || len(v) == 0 {
@@ -202,9 +244,9 @@ func getSeriesFromInfDb(ns string) (map[string]map[string]detail, error) {
 
 		mNameParts := strings.Split(mName, ".")
 		key := transKey(mNameParts[0])
-		d := Detail(mName)
+		d := MeasurementDetail(mName)
 		if _, ok := mNames[key]; !ok {
-			mNames[key] = make(map[string]detail)
+			mNames[key] = make(map[string]Detail)
 		}
 		mNames[key][mName] = d
 	}
@@ -226,7 +268,7 @@ func existInRegistry(metricName string, ms []loda.CollectMetric) bool {
 	return false
 }
 
-func queryInfluxDb(influxdbs []string, params map[string][]string, ip string) (int, []byte, error) {
+func queryInfluxRaw(influxdbs []string, params map[string][]string, ip string) (int, []byte, error) {
 	queryParams := make(map[string]string)
 	for k, v := range params {
 		if len(v) == 0 {
@@ -242,63 +284,103 @@ func queryInfluxDb(influxdbs []string, params map[string][]string, ip string) (i
 	return response.Status, response.Body, nil
 }
 
-func quoteTags(tags string) (string, error) {
-	rs := []string{}
-
-	_tags := strings.Split(tags, ":")
-	for _, tag := range _tags {
-		r := []string{}
-
-		kv := strings.Split(tag, "=")
-		if len(kv) != 2 {
-			return "", errors.New("invalid tags")
-		}
-
-		vs := strings.Split(kv[1], ",")
-		for _, v := range vs {
-			r = append(r, fmt.Sprintf("\"%s\"='%s'", kv[0], v))
-		}
-
-		rs = append(rs, "("+strings.Join(r, " or ")+")")
-	}
-
-	return strings.Join(rs, " and "), nil
+// Results struct
+type Results struct {
+	Results []Result
+	Err     error
 }
 
-func getSeriesViaTagsFromInfDb(ns, mt, tags string) ([]influx.SeriesObj, error) {
-	influxdbs, err := loda.InfluxDBs(ns)
-	if err != nil {
-		return nil, err
-	}
+// Result struct
+type Result struct {
+	Series   []Row
+	Messages []*Message
+	Err      error
+}
 
-	if len(influxdbs) == 0 {
-		return nil, fmt.Errorf("%s has no route config", ns)
-	}
+// Message struct
+type Message struct {
+	Level string `json:"level,omitempty"`
+	Text  string `json:"text,omitempty"`
+}
 
-	var tagsClause string
-	if len(tags) == 0 {
-		tagsClause = ""
-	} else {
-		_tags, err := quoteTags(tags)
-		if err != nil {
-			return nil, err
+// Row struct
+type Row struct {
+	Name    string            `json:"name,omitempty"`
+	Tags    map[string]string `json:"tags,omitempty"`
+	Columns []string          `json:"columns,omitempty"`
+	Values  [][]interface{}   `json:"values,omitempty"`
+	Data    []Point           `json:"data,omitempty"`
+}
+
+// Point struct
+type Point struct {
+	Time  interface{} `json:"time"`
+	Value interface{} `json:"value"`
+}
+
+func queryInfluxDB(influxdbs []string, params map[string][]string, ip string, needParse bool) (int, Results, error) {
+	var response Results
+	queryParams := make(map[string]string)
+	for k, v := range params {
+		if len(v) == 0 {
+			continue
 		}
-		tagsClause = " where " + _tags
+		queryParams[k] = v[0]
+	}
+	resp, err := httpDo(influxdbs, queryParams, ip)
+	if err != nil {
+		return 500, response, err
 	}
 
-	rs, err := influx.Query(influxdbs, map[string]string{
-		"db": ns,
-		"q":  fmt.Sprintf("show series from \"%s\"%s", mt, tagsClause),
-	}, "")
+	dec := json.NewDecoder(resp.Body)
+	defer resp.Body.Close()
+	//dec.UseNumber()
+	err = dec.Decode(&response)
+
+	if err != nil {
+		return 500, response, err
+	}
+
+	if response.Err != nil {
+		return 500, response, response.Err
+	}
+
+	if needParse {
+		res := parse(&response)
+		return resp.StatusCode, *res, nil
+	}
+
+	return resp.StatusCode, response, nil
+}
+
+func httpDo(hosts []string, params map[string]string, ip string) (*http.Response, error) {
+	var host string
+	if len(hosts) > 0 {
+		host = hosts[0]
+	}
+	fullURL := fmt.Sprintf("%s%s", influx.GetQueryUrl(host), influx.ParseParams(params))
+	resp, err := http.Get(fullURL)
 	if err != nil {
 		return nil, err
 	}
-	if len(rs.Results) == 0 {
-		return nil, nil
-	}
-	if len(rs.Results[0].Series) == 0 {
-		return nil, nil
-	}
+	return resp, nil
+}
 
-	return rs.Results[0].Series, nil
+func parse(response *Results) *Results {
+	for i, result := range response.Results {
+		for j, serie := range result.Series {
+			for _, pair := range serie.Values {
+				if len(pair) == 2 {
+					if v, ok := pair[1].(float64); ok {
+						var p Point
+						p.Time = pair[0]
+						p.Value = SetPrecision(v, 4)
+						response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
+						response.Results[i].Series[j].Values = nil
+					}
+				}
+			}
+		}
+	}
+	return response
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Response struct
 type Response struct {
 	StatusCode int         `json:"httpstatus"`
 	Msg        string      `json:"msg"`
@@ -49,7 +50,8 @@ func newResponseWriter(w http.ResponseWriter) *responseWriter {
 	return &responseWriter{w, http.StatusOK}
 }
 
-func (this *responseWriter) WriteHeader(code int) {
-	this.statusCode = code
-	this.ResponseWriter.WriteHeader(code)
+// WriteHeader writes response header
+func (w *responseWriter) WriteHeader(code int) {
+	w.statusCode = code
+	w.ResponseWriter.WriteHeader(code)
 }

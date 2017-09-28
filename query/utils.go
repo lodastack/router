@@ -6,9 +6,11 @@ import (
 )
 
 const (
+	// DAY is all seconds in a day
 	DAY int64 = 86400000
 )
 
+// SetPrecision set a precision for a float64
 func SetPrecision(from float64, precision int) float64 {
 	base := math.Pow10(precision)
 	return float64(int64(from*base)) / base
@@ -56,15 +58,17 @@ func transKey(key string) string {
 	}
 }
 
-type detail struct {
+// Detail infludes Measurement detail info
+type Detail struct {
 	Unit      string `json:"unit"`
 	Mode      string `json:"mode"`
 	Aggregate string `json:"aggregate"`
 	Fill      string `json:"fill"`
 }
 
-func Detail(key string) detail {
-	var d detail
+// MeasurementDetail include measurements detail
+func MeasurementDetail(key string) Detail {
+	var d Detail
 
 	// switch unit
 	if strings.HasPrefix(key, "RUN.net.traffic.") {

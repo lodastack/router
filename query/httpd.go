@@ -128,19 +128,22 @@ func cors(inner http.Handler) http.Handler {
 func (s *Service) initHandler() {
 	s.router.GET("/ping", s.servePing)
 	s.router.GET("/stats", s.statsHandler)
-	s.router.GET("/series", s.seriesHandler)
-	s.router.GET("/tags", s.tagsHandler)
-	s.router.DELETE("/tags", s.tagsHandler)
-	s.router.DELETE("/measurement", s.deleteMeasurementHandler)
 
+	s.router.GET("/measurement", s.listMeasurementHandler)
+	s.router.DELETE("/measurement", s.removeMeasurementHandler)
+	s.router.GET("/tags", s.listTagsHandler)
+	s.router.DELETE("/tags", s.removeTagsHandler)
+
+	// only return about 1500 points every request
 	s.router.GET("/query", s.queryHandler)
 	s.router.POST("/query", s.queryHandler)
+	// origin influxdb http api
 	s.router.GET("/query2", s.query2Handler)
 	s.router.POST("/query2", s.query2Handler)
 
 	// custom API
-	s.router.GET("/core", s.coreHandler)
-	s.router.GET("/usage", s.usageHandler)
+	s.router.GET("/custom/sa", s.saHandler)
+	s.router.GET("/custom/usage", s.usageHandler)
 }
 
 // Service provides HTTP service.
@@ -154,6 +157,7 @@ type Service struct {
 	logger *log.Logger
 }
 
+// New HTTP service
 func New(listen string) (*Service, error) {
 	return &Service{
 		addr:   listen,
@@ -162,6 +166,7 @@ func New(listen string) (*Service, error) {
 	}, nil
 }
 
+// Start HTTP service
 func (s *Service) Start() {
 	go s.c.purgeTimer()
 	s.initHandler()
