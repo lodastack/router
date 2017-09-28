@@ -40,7 +40,6 @@ func init() {
 		os.Exit(1)
 	}
 	initLog(config.GetConfig().Log)
-	runtime.GOMAXPROCS(runtime.NumCPU())
 }
 
 func main() {

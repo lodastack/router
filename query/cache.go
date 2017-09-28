@@ -1,4 +1,4 @@
-// this cache for improve http rquests performance
+// Package query for query backend data
 package query
 
 import (
@@ -6,11 +6,13 @@ import (
 	"time"
 )
 
+// Cache module in HTTP service
 type Cache struct {
 	item map[string]interface{}
 	mu   sync.RWMutex
 }
 
+// NewCache service
 func NewCache() *Cache {
 	c := &Cache{
 		item: make(map[string]interface{}),
@@ -18,12 +20,14 @@ func NewCache() *Cache {
 	return c
 }
 
+// Set sets cache data value
 func (c *Cache) Set(key string, v interface{}) {
 	c.mu.Lock()
 	c.item[key] = v
 	c.mu.Unlock()
 }
 
+// Get gets cache data value via key
 func (c *Cache) Get(key string) interface{} {
 	c.mu.RLock()
 	v, ok := c.item[key]
@@ -34,6 +38,7 @@ func (c *Cache) Get(key string) interface{} {
 	return nil
 }
 
+// Purge remove all cache data
 func (c *Cache) Purge() {
 	c.mu.Lock()
 	c.item = make(map[string]interface{})

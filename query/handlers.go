@@ -16,6 +16,8 @@ import (
 	"github.com/lodastack/log"
 )
 
+const dbPrefix = "collect."
+
 // servePing returns a simple response to let the client know the server is running.
 func (s *Service) servePing(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.WriteHeader(http.StatusNoContent)
@@ -23,12 +25,29 @@ func (s *Service) servePing(w http.ResponseWriter, r *http.Request, _ httprouter
 
 // @desc get measurement tags from influxdb deps on ns name
 // @router /tags [get]
-func (s *Service) tagsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	if req.Method != "GET" && req.Method != "DELETE" {
-		errResp(resp, http.StatusMethodNotAllowed, "Get or delete please!")
+func (s *Service) listTagsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	params, err := url.ParseQuery(req.URL.RawQuery)
+	if err != nil {
+		errResp(resp, http.StatusBadRequest, err.Error())
+		return
+	}
+	ns := params.Get("ns")
+	mt := params.Get("measurement")
+
+	if ns == "" || mt == "" {
+		errResp(resp, http.StatusBadRequest, "You need params 'ns=nsname&measurement=test'")
 		return
 	}
 
+	tags, err := tags(ns, mt)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+	succResp(resp, "OK", tags)
+}
+
+func (s *Service) removeTagsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	params, err := url.ParseQuery(req.URL.RawQuery)
 	if err != nil {
 		errResp(resp, http.StatusBadRequest, err.Error())
@@ -38,39 +57,20 @@ func (s *Service) tagsHandler(resp http.ResponseWriter, req *http.Request, _ htt
 	mt := params.Get("measurement")
 	tag := params.Get("tag")
 	value := params.Get("value")
-	if req.Method == "GET" {
-		if ns == "" || mt == "" {
-			errResp(resp, http.StatusBadRequest, "You need params 'ns=nsname&measurement=test'")
-			return
-		}
-
-		tags, err := getTagsFromInfDb(ns, mt)
-		if err != nil {
-			errResp(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-		succResp(resp, "OK", tags)
+	if ns == "" || mt == "" || tag == "" || value == "" {
+		errResp(resp, http.StatusBadRequest, "You need params")
+		return
 	}
-
-	if req.Method == "DELETE" {
-		if ns == "" || mt == "" || tag == "" || value == "" {
-			errResp(resp, http.StatusBadRequest, "You need params")
-			return
-		}
-
-		err := deleteTagsFromInfDb(ns, mt, tag, value)
-		if err != nil {
-			errResp(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-		succResp(resp, "OK", nil)
+	err = removeTags(ns, mt, tag, value)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
 	}
-
+	succResp(resp, "OK", nil)
 }
 
 // @desc get series from influxdb deps on ns name
-// @router /series [get]
-func (s *Service) seriesHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+func (s *Service) listMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get please!")
 		return
@@ -86,7 +86,7 @@ func (s *Service) seriesHandler(resp http.ResponseWriter, req *http.Request, _ h
 		errResp(resp, http.StatusBadRequest, "where is ns name?")
 		return
 	}
-	series, err := getSeriesFromInfDb(ns)
+	series, err := measurements(ns)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
@@ -96,8 +96,7 @@ func (s *Service) seriesHandler(resp http.ResponseWriter, req *http.Request, _ h
 }
 
 // @desc drop measurement
-// @router /measurement [delete]
-func (s *Service) deleteMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+func (s *Service) removeMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "DELETE" {
 		errResp(resp, http.StatusMethodNotAllowed, "Delete please!")
 		return
@@ -199,7 +198,7 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	// remote cluster param
 	delete(params, "cluster")
 
-	status, rs, err := queryInfluxDb(influxdbs, params, req.Header.Get("X-Real-IP"))
+	status, rs, err := queryInfluxRaw(influxdbs, params, req.Header.Get("X-Real-IP"))
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
@@ -214,7 +213,7 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 func parseDB(q string) (string, error) {
 	list := strings.Split(q, " ")
 	for _, str := range list {
-		if !strings.HasPrefix(str, "\"collect.") {
+		if !strings.HasPrefix(str, "\""+dbPrefix) {
 			continue
 		}
 		if dbIndex := strings.Index(str, "\"."); dbIndex != -1 {
@@ -256,7 +255,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 		return
 	}
 
-	tags, err := getTagsFromInfDb(ns, measurement)
+	tags, err := tags(ns, measurement)
 	if err != nil {
 		errResp(resp, 500, ns+" get tags failed: "+err.Error())
 		return
@@ -284,8 +283,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 	p.Set("db", ns)
 	p.Set("epoch", "s")
 	p.Set("pretty", "true")
-	// p.Set("chunked", "true")
-	// p.Set("chunk_size", "200000000000000000")
+
 	req.URL.RawQuery = p.Encode()
 	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), true)
 	if err != nil {
@@ -305,7 +303,7 @@ func (s *Service) statsHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	succResp(resp, "OK", nil)
 }
 
-func (s *Service) coreHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+func (s *Service) saHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	starttime := req.FormValue("starttime")
 	endtime := req.FormValue("endtime")
 	ns := req.FormValue("ns")
@@ -315,14 +313,14 @@ func (s *Service) coreHandler(resp http.ResponseWriter, req *http.Request, _ htt
 	}
 
 	if ns == "api.loda" {
-		if res := s.c.Get("collect." + ns + starttime + endtime); res != nil {
+		if res := s.c.Get(dbPrefix + ns + starttime + endtime); res != nil {
 			succResp(resp, "OK", res)
 			return
 		}
 	}
 
-	ns = "collect." + ns
-	m, err := s.HA(ns, starttime, endtime)
+	ns = dbPrefix + ns
+	m, err := s.sa(ns, starttime, endtime)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
@@ -330,13 +328,13 @@ func (s *Service) coreHandler(resp http.ResponseWriter, req *http.Request, _ htt
 	succResp(resp, "OK", m)
 }
 
-func (se *Service) HA(ns string, starttime string, endtime string) (map[string]float64, error) {
+func (s *Service) sa(ns string, starttime string, endtime string) (map[string]float64, error) {
 	m := make(map[string]float64)
-	s, err := strconv.ParseInt(starttime, 10, 64)
+	st, err := strconv.ParseInt(starttime, 10, 64)
 	if err != nil {
 		return m, err
 	}
-	e, err := strconv.ParseInt(endtime, 10, 64)
+	et, err := strconv.ParseInt(endtime, 10, 64)
 	if err != nil {
 		return m, err
 	}
@@ -351,7 +349,7 @@ func (se *Service) HA(ns string, starttime string, endtime string) (map[string]f
 		return m, fmt.Errorf(ns + " has no influxdb route config")
 	}
 
-	series, err := getSeriesFromInfDb(ns)
+	series, err := measurements(ns)
 	if err != nil {
 		return m, err
 	}
@@ -379,12 +377,12 @@ func (se *Service) HA(ns string, starttime string, endtime string) (map[string]f
 				}
 			}
 
-			totalCount := math.Ceil(float64(e-s) / 1000 / 60)
+			totalCount := math.Ceil(float64(et-st) / 1000 / 60)
 			m[name] = SetPrecision((totalCount-failedCount)/totalCount*100, 8)
 			log.Debugf("failed conut: %v", failedCount)
 		}
 	}
-	se.c.Set(ns+starttime+endtime, m)
+	s.c.Set(ns+starttime+endtime, m)
 	return m, nil
 }
 
@@ -443,7 +441,7 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		return
 	}
 
-	tags, err := getTagsFromInfDb(ns, measurement)
+	tags, err := tags(ns, measurement)
 	if err != nil {
 		errResp(resp, 500, ns+" get tags failed: "+err.Error())
 		return
