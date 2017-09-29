@@ -18,13 +18,15 @@ import (
 
 const dbPrefix = "collect."
 
+// DefaultAPINameSpace is default global api monitor ns
+const DefaultAPINameSpace = "api.loda"
+
 // servePing returns a simple response to let the client know the server is running.
 func (s *Service) servePing(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// @desc get measurement tags from influxdb deps on ns name
-// @router /tags [get]
+// listTagsHandler list tags
 func (s *Service) listTagsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	params, err := url.ParseQuery(req.URL.RawQuery)
 	if err != nil {
@@ -69,7 +71,6 @@ func (s *Service) removeTagsHandler(resp http.ResponseWriter, req *http.Request,
 	succResp(resp, "OK", nil)
 }
 
-// @desc get series from influxdb deps on ns name
 func (s *Service) listMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get please!")
@@ -95,7 +96,7 @@ func (s *Service) listMeasurementHandler(resp http.ResponseWriter, req *http.Req
 	succResp(resp, "OK", series)
 }
 
-// @desc drop measurement
+// remove measurement
 func (s *Service) removeMeasurementHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "DELETE" {
 		errResp(resp, http.StatusMethodNotAllowed, "Delete please!")
@@ -147,8 +148,6 @@ func (s *Service) removeMeasurementHandler(resp http.ResponseWriter, req *http.R
 	resp.Write(rs.Body)
 }
 
-// @desc origin query for influxdb
-// @router /query [get]
 func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" && req.Method != "POST" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or Post please!")
@@ -223,8 +222,6 @@ func parseDB(q string) (string, error) {
 	return "", fmt.Errorf("can not found db from params q")
 }
 
-// @desc origin query for influxdb
-// @router /query2 [get]
 func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	if req.Method != "GET" && req.Method != "POST" {
 		errResp(resp, http.StatusMethodNotAllowed, "Get or POST please!")
@@ -262,7 +259,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 	}
 
 	if len(tags) > 4 {
-		//test
+		//tags num can not grater than 4
 		errResp(resp, 500, ns+" tag > 4")
 		return
 	}
@@ -297,8 +294,6 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 	resp.WriteHeader(status)
 }
 
-// @desc health check
-// @router /stats [get]
 func (s *Service) statsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	succResp(resp, "OK", nil)
 }
@@ -309,10 +304,10 @@ func (s *Service) saHandler(resp http.ResponseWriter, req *http.Request, _ httpr
 	ns := req.FormValue("ns")
 
 	if ns == "" {
-		ns = "api.loda"
+		ns = DefaultAPINameSpace
 	}
 
-	if ns == "api.loda" {
+	if ns == DefaultAPINameSpace {
 		if res := s.c.Get(dbPrefix + ns + starttime + endtime); res != nil {
 			succResp(resp, "OK", res)
 			return

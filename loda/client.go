@@ -12,16 +12,28 @@ import (
 	"github.com/lodastack/log"
 )
 
+// CommonCluster is default db to write points
+// You must create common.db.monitor.loda in your registry
 const CommonCluster = "common"
+
+// DefaultDBNameSpace is default db NS, all db is stored here
 const DefaultDBNameSpace = "db.monitor.loda"
-const MachineUri = "/api/v1/router/resource?ns=%s&type=machine"
-const CollectUri = "/api/v1/router/resource?ns=%s&type=collect"
+
+// MachineURI API
+const MachineURI = "/api/v1/router/resource?ns=%s&type=machine"
+
+// CollectURI API
+const CollectURI = "/api/v1/router/resource?ns=%s&type=collect"
 
 var (
-	PurgeChan    chan string
-	Client       *client
+	// PurgeChan to pure cache data
+	PurgeChan chan string
+	// Client is a cache db
+	Client *client
+	// RegistryAddr is registry server
 	RegistryAddr string
-	ExpireDur    int
+	// ExpireDur is expiire duration
+	ExpireDur int
 )
 
 type client struct {
@@ -30,21 +42,22 @@ type client struct {
 	mu sync.RWMutex
 }
 
-type RespNS struct {
+type respNS struct {
 	Status int      `json:"httpstatus"`
 	Data   []string `json:"data"`
 }
 
-type RespDB struct {
+type respDB struct {
 	Status int      `json:"httpstatus"`
-	Data   []Server `json:"data"`
+	Data   []server `json:"data"`
 }
 
-type Server struct {
+type server struct {
 	IP       string `json:"ip"`
 	Hostname string `json:"hostname"`
 }
 
+// Init func init global var
 func Init(regAddr string, expireDur int) {
 	RegistryAddr = regAddr
 	ExpireDur = expireDur
@@ -54,6 +67,7 @@ func Init(regAddr string, expireDur int) {
 	}
 }
 
+// PurgeAll clean all cache data
 func PurgeAll() {
 	var ticker *time.Ticker
 	interval := ExpireDur
@@ -99,6 +113,7 @@ func (c *client) purge(ns string) {
 	log.Infof("purge cache ns:%s", ns)
 }
 
+// InfluxDBs gets db IPs via ns
 func InfluxDBs(ns string) ([]string, error) {
 	var res []string
 	var ok bool
@@ -124,7 +139,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 		return []string{}, fmt.Errorf("ns error: %s", ns)
 	}
 	partone := list[len(list)-2]
-	uri := fmt.Sprintf(MachineUri, partone+"."+DefaultDBNameSpace)
+	uri := fmt.Sprintf(MachineURI, partone+"."+DefaultDBNameSpace)
 	url := fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err := servers(url)
 	if err != nil || len(res) > 0 {
@@ -136,7 +151,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 	if err == nil {
 		ok, cluster := includeNS(partone, res)
 		if ok {
-			uri = fmt.Sprintf(MachineUri, cluster+"."+DefaultDBNameSpace)
+			uri = fmt.Sprintf(MachineURI, cluster+"."+DefaultDBNameSpace)
 			url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 			res, err = servers(url)
 			if err != nil || len(res) > 0 {
@@ -148,7 +163,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 	}
 
 	// Send to common cluster if not found customer cluster
-	uri = fmt.Sprintf(MachineUri, CommonCluster+"."+DefaultDBNameSpace)
+	uri = fmt.Sprintf(MachineURI, CommonCluster+"."+DefaultDBNameSpace)
 	url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err = servers(url)
 	if err != nil || len(res) > 0 {
@@ -160,7 +175,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 
 func servers(url string) ([]string, error) {
 	var res []string
-	var resdb RespDB
+	var resdb respDB
 
 	resp, err := requests.Get(url)
 	if err != nil {
@@ -182,7 +197,7 @@ func servers(url string) ([]string, error) {
 }
 
 func allNS(url string) ([]string, error) {
-	var resNS RespNS
+	var resNS respNS
 	var res []string
 	resp, err := requests.Get(url)
 	if err != nil {
@@ -213,16 +228,19 @@ func includeNS(nsPartOne string, dbs []string) (bool, string) {
 	return false, ""
 }
 
+// CollectMetric is collect struct(only includes name and interval) for filter
 type CollectMetric struct {
 	Name     string `json:"name"`
 	Interval string `json:"interval"`
 }
 
+// RespCollect is http respon struct
 type RespCollect struct {
 	Status int             `json:"httpstatus"`
 	Data   []CollectMetric `json:"data"`
 }
 
+// CollectMetrics get all collect res via ns
 func CollectMetrics(ns string) ([]CollectMetric, error) {
 	var res []CollectMetric
 	var data RespCollect
@@ -230,7 +248,7 @@ func CollectMetrics(ns string) ([]CollectMetric, error) {
 	// remove "collect." from NS
 	ns = strings.TrimPrefix(ns, "collect.")
 
-	uri := fmt.Sprintf(CollectUri, ns)
+	uri := fmt.Sprintf(CollectURI, ns)
 	url := fmt.Sprintf("%s%s", RegistryAddr, uri)
 	resp, err := requests.Get(url)
 	if err != nil {
