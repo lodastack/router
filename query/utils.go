@@ -93,8 +93,14 @@ func MeasurementDetail(key string) Detail {
 		d.Unit = "%"
 	case "fs.inodes.used.percent":
 		d.Unit = "%"
-	case "percentfs.space.used.percent":
+	case "fs.space.used.percent":
 		d.Unit = "%"
+	case "fs.space.used":
+		d.Unit = "MB"
+	case "fs.space.free":
+		d.Unit = "MB"
+	case "fs.space.total":
+		d.Unit = "MB"
 	case "fs.files.rw":
 		d.Mode = "bar"
 	case "disk.io.util":
