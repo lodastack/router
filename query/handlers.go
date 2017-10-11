@@ -16,11 +16,6 @@ import (
 	"github.com/lodastack/log"
 )
 
-const dbPrefix = "collect."
-
-// DefaultAPINameSpace is default global api monitor ns
-const DefaultAPINameSpace = "api.loda"
-
 // servePing returns a simple response to let the client know the server is running.
 func (s *Service) servePing(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.WriteHeader(http.StatusNoContent)
@@ -212,7 +207,7 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 func parseDB(q string) (string, error) {
 	list := strings.Split(q, " ")
 	for _, str := range list {
-		if !strings.HasPrefix(str, "\""+dbPrefix) {
+		if !strings.HasPrefix(str, "\""+config.GetConfig().Nsq.TopicPrefix+".") {
 			continue
 		}
 		if dbIndex := strings.Index(str, "\"."); dbIndex != -1 {
@@ -304,17 +299,17 @@ func (s *Service) saHandler(resp http.ResponseWriter, req *http.Request, _ httpr
 	ns := req.FormValue("ns")
 
 	if ns == "" {
-		ns = DefaultAPINameSpace
+		ns = config.GetConfig().Com.DefaultAPINameSpace
 	}
 
-	if ns == DefaultAPINameSpace {
-		if res := s.c.Get(dbPrefix + ns + starttime + endtime); res != nil {
+	if ns == config.GetConfig().Com.DefaultAPINameSpace {
+		if res := s.c.Get(config.GetConfig().Nsq.TopicPrefix + "." + ns + starttime + endtime); res != nil {
 			succResp(resp, "OK", res)
 			return
 		}
 	}
 
-	ns = dbPrefix + ns
+	ns = config.GetConfig().Nsq.TopicPrefix + "." + ns
 	m, err := s.sa(ns, starttime, endtime)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
