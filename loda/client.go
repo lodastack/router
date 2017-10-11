@@ -7,17 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lodastack/router/config"
 	"github.com/lodastack/router/requests"
 
 	"github.com/lodastack/log"
 )
-
-// CommonCluster is default db to write points
-// You must create common.db.monitor.loda in your registry
-const CommonCluster = "common"
-
-// DefaultDBNameSpace is default db NS, all db is stored here
-const DefaultDBNameSpace = "db.monitor.loda"
 
 // MachineURI API
 const MachineURI = "/api/v1/router/resource?ns=%s&type=machine"
@@ -139,19 +133,19 @@ func updateInfluxDBs(ns string) ([]string, error) {
 		return []string{}, fmt.Errorf("ns error: %s", ns)
 	}
 	partone := list[len(list)-2]
-	uri := fmt.Sprintf(MachineURI, partone+"."+DefaultDBNameSpace)
+	uri := fmt.Sprintf(MachineURI, partone+"."+config.GetConfig().Com.DBNS)
 	url := fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err := servers(url)
 	if err != nil || len(res) > 0 {
 		return res, err
 	}
 
-	url = fmt.Sprintf("%s/api/v1/router/ns?ns=%s&format=list", RegistryAddr, DefaultDBNameSpace)
+	url = fmt.Sprintf("%s/api/v1/router/ns?ns=%s&format=list", RegistryAddr, config.GetConfig().Com.DBNS)
 	res, err = allNS(url)
 	if err == nil {
 		ok, cluster := includeNS(partone, res)
 		if ok {
-			uri = fmt.Sprintf(MachineURI, cluster+"."+DefaultDBNameSpace)
+			uri = fmt.Sprintf(MachineURI, cluster+"."+config.GetConfig().Com.DBNS)
 			url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 			res, err = servers(url)
 			if err != nil || len(res) > 0 {
@@ -163,7 +157,7 @@ func updateInfluxDBs(ns string) ([]string, error) {
 	}
 
 	// Send to common cluster if not found customer cluster
-	uri = fmt.Sprintf(MachineURI, CommonCluster+"."+DefaultDBNameSpace)
+	uri = fmt.Sprintf(MachineURI, config.GetConfig().Com.DefaultDBCluster+"."+config.GetConfig().Com.DBNS)
 	url = fmt.Sprintf("%s%s", RegistryAddr, uri)
 	res, err = servers(url)
 	if err != nil || len(res) > 0 {

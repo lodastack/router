@@ -26,10 +26,13 @@ type Config struct {
 }
 
 type CommonConfig struct {
-	Listen             string `toml:"listen"`
-	InfluxdPort        int    `toml:"influxdPort"`
-	TopicsPollInterval int    `toml:"topicsPollInterval"`
-	HiddenMetricSuffix string `toml:"hiddenMetricSuffix"`
+	Listen              string `toml:"listen"`
+	InfluxdPort         int    `toml:"influxdPort"`
+	TopicsPollInterval  int    `toml:"topicsPollInterval"`
+	HiddenMetricSuffix  string `toml:"hiddenMetricSuffix"`
+	DBNS                string `toml:"DBNS"`
+	DefaultDBCluster    string `toml:"defaultDBCluster"`
+	DefaultAPINameSpace string `toml:"defaultAPINameSpace"`
 }
 
 type LogConfig struct {
