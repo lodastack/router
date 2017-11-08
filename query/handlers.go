@@ -475,3 +475,170 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 	succResp(resp, "OK", rs)
 	resp.WriteHeader(status)
 }
+
+func (s *Service) linkstatsHandler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+
+	/*
+	   {
+	   	"nodes": [
+	   		{"id": "OldMan1"},
+	   		{"id": "OldMan2"},
+	   		{"id": "OldMan3"},
+	   		{"id": "OldMan4"},
+	   		{"id": "OldMan5"},
+	   	],
+	   	"links": [
+	   		{"source": "OldMan1", "target": "OldMan1"},
+	   		{"source": "OldMan1", "target": "OldMan2"},
+	   		{"source": "OldMan1", "target": "OldMan3"},
+	   		{"source": "OldMan1", "target": "OldMan4"},
+	   		{"source": "OldMan1", "target": "OldMan5"},
+	   	]
+	   }
+	*/
+
+	type node struct {
+		ID   string `json:"id"`
+		Host string `json:"host"`
+		Type int    `json:"type"`
+	}
+	type link struct {
+		Source string  `json:"source"`
+		Target string  `json:"target"`
+		Value  float64 `json:"value"`
+	}
+	type Res struct {
+		Nodes []node `json:"nodes"`
+		Links []link `json:"links"`
+	}
+
+	var reses []Res
+	measurement := "RUN.ping.loss"
+	for _, ns := range config.GetConfig().LinkStats.NS {
+		if ns == "" {
+			continue
+		}
+		// for remove rep
+		idcmap := make(map[string]node)
+		linkmap := make(map[string]link)
+		var res Res
+		var nodes []node
+		var links []link
+		ens := config.GetConfig().Nsq.TopicPrefix + "." + ns
+		influxdbs, err := loda.InfluxDBs(ens)
+		if err != nil {
+			errResp(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if len(influxdbs) == 0 {
+			errResp(resp, 400, ens+" has no influxdb route config")
+			return
+		}
+
+		tags, err := tags(ens, measurement)
+		if err != nil {
+			errResp(resp, 500, ens+" get tags failed: "+err.Error())
+			return
+		}
+
+		if len(tags) > 4 {
+			errResp(resp, 500, ens+" tag > 4")
+			return
+		}
+
+		var sources, targets []string
+		for k, v := range tags {
+			if k == "from" {
+				for _, source := range v {
+					if sourceString, ok := source.(string); ok {
+						//nodes = append(nodes, node{ID: sourceString, Type: 0})
+						if idcname := idc(sourceString); idcname != "" {
+							idcmap[idcname] = node{ID: idcname, Host: sourceString, Type: 0}
+							sources = append(sources, sourceString)
+						}
+					}
+				}
+			}
+			if k == "host" {
+				for _, target := range v {
+					if targetString, ok := target.(string); ok {
+						//nodes = append(nodes, node{ID: targetString, Type: 1})
+						if idcname := idc(targetString); idcname != "" {
+							idcmap[idcname] = node{ID: idcname, Host: targetString, Type: 1}
+							targets = append(targets, targetString)
+						}
+					}
+				}
+			}
+		}
+
+		for _, s := range sources {
+			for _, t := range targets {
+				value, err := latest(influxdbs, ens, measurement, s, t)
+				if err != nil {
+					continue
+				}
+				//links = append(links, link{Source: s, Target: t, Value: value})
+				sidc := idc(s)
+				tidc := idc(t)
+				if sidc == tidc {
+					continue
+				}
+				linkmap[sidc+tidc] = link{Source: sidc, Target: tidc, Value: value}
+			}
+		}
+
+		for _, v := range idcmap {
+			nodes = append(nodes, v)
+		}
+		for _, v := range linkmap {
+			links = append(links, v)
+		}
+		res.Links, res.Nodes = links, nodes
+		reses = append(reses, res)
+	}
+	resp.Header().Add("Content-Type", "application/json")
+	succResp(resp, "OK", reses)
+}
+
+func idc(h string) string {
+	for _, idc := range config.GetConfig().IDC {
+		for _, host := range idc.Hosts {
+			if host == h {
+				return idc.Name
+			}
+		}
+	}
+	return ""
+}
+
+func latest(influxdbs []string, ns, measurement, source, target string) (float64, error) {
+	query := fmt.Sprintf("select LAST(\"value\") from \"%s\" where \"host\" = '%s' and \"from\" = '%s'", measurement, target, source)
+	p := url.Values{}
+	p.Set("q", query)
+	p.Set("db", ns)
+	p.Set("epoch", "s")
+	p.Set("pretty", "true")
+
+	p.Encode()
+	_, rs, err := queryInfluxDB(influxdbs, p, "", false)
+	if err != nil {
+		log.Errorf(err.Error())
+		return 0, err
+	}
+
+	for _, result := range rs.Results {
+		for _, serie := range result.Series {
+			for _, pair := range serie.Values {
+				if len(pair) == 2 {
+					if v, ok := pair[1].(float64); ok {
+						return SetPrecision(v, 4), nil
+					}
+				}
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("not found value")
+}

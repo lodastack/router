@@ -134,16 +134,17 @@ func (s *Service) initHandler() {
 	s.router.GET("/tags", s.listTagsHandler)
 	s.router.DELETE("/tags", s.removeTagsHandler)
 
-	// only return about 1500 points every request
+	// origin influxdb http api
 	s.router.GET("/query", s.queryHandler)
 	s.router.POST("/query", s.queryHandler)
-	// origin influxdb http api
+	// only return about 1500 points every request
 	s.router.GET("/query2", s.query2Handler)
 	s.router.POST("/query2", s.query2Handler)
 
 	// custom API
 	s.router.GET("/custom/sa", s.saHandler)
 	s.router.GET("/custom/usage", s.usageHandler)
+	s.router.GET("/custom/linkstats", s.linkstatsHandler)
 }
 
 // Service provides HTTP service.
