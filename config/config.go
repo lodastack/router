@@ -18,11 +18,13 @@ var (
 )
 
 type Config struct {
-	Com CommonConfig   `toml:"common"`
-	Reg RegistryConfig `toml:"registry"`
-	Usg UsageConfig    `toml:"usage"`
-	Nsq NsqConfig      `toml:"nsq"`
-	Log LogConfig      `toml:"log"`
+	Com       CommonConfig   `toml:"common"`
+	Reg       RegistryConfig `toml:"registry"`
+	Usg       UsageConfig    `toml:"usage"`
+	LinkStats LinkStasConfig `toml:"linkstats"`
+	IDC       []IDCConfig    `toml:"idc"`
+	Nsq       NsqConfig      `toml:"nsq"`
+	Log       LogConfig      `toml:"log"`
 }
 
 type CommonConfig struct {
@@ -50,6 +52,15 @@ type RegistryConfig struct {
 
 type UsageConfig struct {
 	Enable bool `toml:"enable"`
+}
+
+type LinkStasConfig struct {
+	NS []string `toml:"ns"`
+}
+
+type IDCConfig struct {
+	Name  string   `toml:"name"`
+	Hosts []string `toml:"hosts"`
 }
 
 type NsqConfig struct {
