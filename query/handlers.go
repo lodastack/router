@@ -542,8 +542,8 @@ func (s *Service) linkstatsHandler(resp http.ResponseWriter, req *http.Request, 
 			return
 		}
 
-		if len(tags) > 4 {
-			errResp(resp, 500, ens+" tag > 4")
+		if len(tags) > 10 {
+			errResp(resp, 500, ens+" tag > 10")
 			return
 		}
 
