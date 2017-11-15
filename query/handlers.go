@@ -253,9 +253,9 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 		return
 	}
 
-	if len(tags) > 4 {
+	if len(tags) > 10 {
 		//tags num can not grater than 4
-		errResp(resp, 500, ns+" tag > 4")
+		errResp(resp, 500, ns+" tag > 10")
 		return
 	}
 
@@ -437,8 +437,8 @@ func (s *Service) usageHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		return
 	}
 
-	if len(tags) > 4 {
-		errResp(resp, 500, ns+" tag > 4")
+	if len(tags) > 10 {
+		errResp(resp, 500, ns+" tag > 10")
 		return
 	}
 
@@ -542,8 +542,8 @@ func (s *Service) linkstatsHandler(resp http.ResponseWriter, req *http.Request, 
 			return
 		}
 
-		if len(tags) > 4 {
-			errResp(resp, 500, ens+" tag > 4")
+		if len(tags) > 10 {
+			errResp(resp, 500, ens+" tag > 10")
 			return
 		}
 
