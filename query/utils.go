@@ -36,25 +36,25 @@ func transKey(key string) string {
 	case "cpu":
 		return "CPU"
 	case "mem":
-		return "内存"
+		return "Memory"
 	case "net":
-		return "网络"
+		return "Network"
 	case "disk":
-		return "硬盘"
+		return "Disk"
 	case "fs":
-		return "文件系统"
+		return "FileSystem"
 	case "io":
 		return "IO"
 	case "port":
-		return "端口监控"
+		return "Port"
 	case "plugin":
-		return "插件监控"
+		return "Plugin"
 	case "proc":
-		return "进程监控"
+		return "Process"
 	case "run":
-		return "监控上报"
+		return "SDK"
 	default:
-		return "其他系统监控"
+		return "Other"
 	}
 }
 
