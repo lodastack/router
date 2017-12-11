@@ -344,7 +344,7 @@ func (s *Service) sa(ns string, starttime string, endtime string) (map[string]fl
 		return m, err
 	}
 
-	for name := range series["监控上报"] {
+	for name := range series["SDK"] {
 		if strings.HasSuffix(name, ".alive") {
 			query := fmt.Sprintf("select * from (SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)) where \"mean\"=0",
 				name, starttime, endtime, "1m")
