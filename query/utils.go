@@ -106,9 +106,9 @@ func MeasurementDetail(key string) Detail {
 	case "disk.io.util":
 		d.Unit = "%"
 	case "disk.io.read_requests":
-		d.Unit = "次/秒"
+		d.Unit = "IOPS"
 	case "disk.io.write_requests":
-		d.Unit = "次/秒"
+		d.Unit = "IOPS"
 	case "time.offset":
 		d.Unit = "s"
 	case "net.out":
