@@ -677,8 +677,10 @@ func HW(rs Results) Results {
 	for i, v := range prediction {
 		u := v * 1.2
 		l := v * 0.8
-		rs.Results[0].Series[0].Data[i].Value = u
-		rs.Results[0].Series[1].Data[i].Value = l
+		if i <= len(rs.Results[0].Series[0].Data) {
+			rs.Results[0].Series[0].Data[i].Value = u
+			rs.Results[0].Series[1].Data[i].Value = l
+		}
 	}
 	return rs
 }
