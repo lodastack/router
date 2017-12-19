@@ -290,7 +290,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 			errResp(resp, 500, "only one series supported")
 			return
 		}
-		rs = HW(&rs)
+		rs = HW(rs)
 	}
 
 	// just return the origin influxdb rs
@@ -653,18 +653,11 @@ func latest(influxdbs []string, ns, measurement, source, target string) (float64
 	return 0, fmt.Errorf("not found value")
 }
 
-func HW(rs *Results) Results {
+func HW(rs Results) Results {
 	var sourceValues []float64
-	for _, pair := range rs.Results[0].Series[0].Values {
-		if len(pair) == 2 {
-			if v, ok := pair[1].(float64); ok {
-				var p Point
-				p.Time = pair[0]
-				p.Value = SetPrecision(v, 4)
-				sourceValues = append(sourceValues, SetPrecision(v, 4))
-				rs.Results[0].Series[0].Data = append(rs.Results[0].Series[0].Data, p)
-				rs.Results[0].Series[0].Values = nil
-			}
+	for _, point := range rs.Results[0].Series[0].Data {
+		if v, ok := point.Value.(float64); ok {
+			sourceValues = append(sourceValues, v)
 		}
 	}
 	period := 50
@@ -674,10 +667,10 @@ func HW(rs *Results) Results {
 	beta := 0.4
 	gamma := 0.6
 
-	prediction, err := holtwinters.Forecast(sourceValues[:], alpha, beta, gamma, period, m)
+	prediction, err := holtwinters.Forecast(sourceValues, alpha, beta, gamma, period, m)
 	if err != nil {
 		log.Errorf("hw prediction error: %s", err)
-		return *rs
+		return rs
 	}
 
 	rs.Results[0].Series[1] = rs.Results[0].Series[0]
@@ -687,5 +680,5 @@ func HW(rs *Results) Results {
 		rs.Results[0].Series[0].Data[i].Value = u
 		rs.Results[0].Series[1].Data[i].Value = l
 	}
-	return *rs
+	return rs
 }
