@@ -673,7 +673,7 @@ func HW(rs Results) Results {
 		return rs
 	}
 
-	rs.Results[0].Series[1] = rs.Results[0].Series[0]
+	rs.Results[0].Series = append(rs.Results[0].Series, rs.Results[0].Series[0])
 	for i, v := range prediction {
 		u := v * 1.2
 		l := v * 0.8
