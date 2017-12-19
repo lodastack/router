@@ -674,7 +674,7 @@ func HW(rs *Results) Results {
 	beta := 0.4
 	gamma := 0.6
 
-	prediction, err := holtwinters.Forecast(sourceValues, alpha, beta, gamma, period, m)
+	prediction, err := holtwinters.Forecast(sourceValues[:], alpha, beta, gamma, period, m)
 	if err != nil {
 		log.Errorf("hw prediction error: %s", err)
 		return *rs
