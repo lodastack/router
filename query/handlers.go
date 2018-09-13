@@ -155,7 +155,7 @@ func (s *Service) queryHandler(resp http.ResponseWriter, req *http.Request, _ ht
 		return
 	}
 
-	if strings.Contains(strings.ToLower(params.Get("q")), "drop ") {
+	if strings.Contains(strings.ToLower(params.Get("q")), "drop ") || strings.Contains(strings.ToLower(params.Get("q")), "delete ") {
 		errResp(resp, http.StatusBadRequest, "ah, Don't support drop")
 		return
 	}
