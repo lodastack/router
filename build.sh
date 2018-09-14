@@ -3,6 +3,7 @@
 set -e
 
 # build bin file
+export GO111MODULE=on
 make build
 
 # make my dir

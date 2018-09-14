@@ -4,8 +4,7 @@ fmt:
 	gofmt -l -w -s */
 
 build: fmt 
-	gdm restore
-	cd cmd/router && go build -v
+	cd cmd/router && go build -v -mod=vendor
 
 install: fmt
 	cd cmd/router && go install
