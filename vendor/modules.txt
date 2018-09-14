@@ -1,0 +1,48 @@
+# github.com/BurntSushi/toml v0.1.1-0.20141028230038-3883ac1ce943
+github.com/BurntSushi/toml
+# github.com/Unknwon/com v0.0.0-20180617003950-da59b551951d
+github.com/Unknwon/com
+# github.com/bitly/go-nsq v1.0.5-0.20150715154133-a3aee1d8e104
+github.com/bitly/go-nsq
+# github.com/go-macaron/inject v0.0.0-20160627170012-d8a0b8677191
+github.com/go-macaron/inject
+# github.com/go-macaron/session v0.0.0-20170320172209-b8e286a0dba8
+github.com/go-macaron/session
+# github.com/go-stack/stack v1.8.0
+github.com/go-stack/stack
+# github.com/gosimple/slug v1.2.0
+github.com/gosimple/slug
+# github.com/grafana/grafana v3.1.0-beta1.0.20161212211227-0841e841f53c+incompatible
+github.com/grafana/grafana/pkg/tsdb
+github.com/grafana/grafana/pkg/components/simplejson
+github.com/grafana/grafana/pkg/models
+github.com/grafana/grafana/pkg/components/securejsondata
+github.com/grafana/grafana/pkg/setting
+github.com/grafana/grafana/pkg/util
+github.com/grafana/grafana/pkg/log
+# github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
+github.com/inconshreveable/log15
+github.com/inconshreveable/log15/term
+# github.com/julienschmidt/httprouter v0.0.0-20150708215400-6aacfd5ab513
+github.com/julienschmidt/httprouter
+# github.com/lodastack/log v0.0.0-20161025094532-b25a4d2e8c22
+github.com/lodastack/log
+# github.com/mattn/go-colorable v0.0.9
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.4
+github.com/mattn/go-isatty
+# github.com/mreiferson/go-snappystream v0.2.3
+github.com/mreiferson/go-snappystream
+github.com/mreiferson/go-snappystream/snappy-go
+# github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be
+github.com/rainycape/unidecode
+# golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
+golang.org/x/crypto/pbkdf2
+# golang.org/x/sys v0.0.0-20180909124046-d0be0721c37e
+golang.org/x/sys/unix
+# gopkg.in/guregu/null.v3 v3.4.0
+gopkg.in/guregu/null.v3
+# gopkg.in/ini.v1 v1.38.2
+gopkg.in/ini.v1
+# gopkg.in/macaron.v1 v1.3.1
+gopkg.in/macaron.v1
