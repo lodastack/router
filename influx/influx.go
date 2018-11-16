@@ -176,6 +176,12 @@ func writePoints(influxDb string, db string, precision string, data []byte, poin
 	}
 }
 
+var rpMap = map[string]string{
+	".api.loda":     "500d",
+	".switch.loda":  "500d",
+	".mail.it.loda": "500d",
+}
+
 func createDbAndRP(influxDbs []string, db string) (err error) {
 	_, err = Query(influxDbs, map[string]string{
 		"q": fmt.Sprintf("create database \"%s\"", db),
@@ -186,8 +192,15 @@ func createDbAndRP(influxDbs []string, db string) (err error) {
 		return err
 	}
 
+	rpd := "90d"
+	for k, v := range rpMap {
+		if strings.HasSuffix(db, k) {
+			rpd = v
+		}
+	}
+
 	_, err = Query(influxDbs, map[string]string{
-		"q": fmt.Sprintf("CREATE RETENTION POLICY loda ON \"%s\" DURATION 90d REPLICATION 1 DEFAULT", db),
+		"q": fmt.Sprintf("CREATE RETENTION POLICY loda ON \"%s\" DURATION %s REPLICATION 1 DEFAULT", db, rpd),
 	}, "")
 	if err != nil {
 		log.Errorf("create rp on db %s failed: %s", db, err)
