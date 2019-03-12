@@ -254,7 +254,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 	}
 
 	if len(tags) > 10 {
-		//tags num can not grater than 4
+		//tags num can not grater than 10
 		errResp(resp, 500, ns+" tag > 10")
 		return
 	}
