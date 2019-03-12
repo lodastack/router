@@ -27,11 +27,19 @@ func NewQuery(measurement string, start string, end string, tags []string, where
 
 	var filterTags []string
 	for _, tagkey := range tags {
-		filterTags = append(filterTags, fmt.Sprintf("\"%s\"", tagkey))
+		if strings.Contains(where, tagkey) {
+			filterTags = append(filterTags, fmt.Sprintf("\"%s\"", tagkey))
+		}
 	}
 
 	rawQuery := fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s) fill(%s)",
 		fn, measurement, start, end, interval, fill)
+	// display hostname if fn in (max, min, medium)
+	if fn == "max" || fn == "min" || fn == "medium" {
+		rawQuery = fmt.Sprintf("SELECT %s(\"value\"),\"host\" FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s) fill(%s)",
+			fn, measurement, start, end, interval, fill)
+	}
+
 	if where != "" {
 		rawQuery = fmt.Sprintf("SELECT %s(\"value\") FROM \"%s\" WHERE %s AND time > %sms and time < %sms GROUP BY time(%s), %s fill(%s)",
 			fn, measurement, where, start, end, interval, strings.Join(filterTags, ","), fill)
