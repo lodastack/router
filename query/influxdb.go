@@ -317,13 +317,7 @@ type Row struct {
 	Tags    map[string]string `json:"tags,omitempty"`
 	Columns []string          `json:"columns,omitempty"`
 	Values  [][]interface{}   `json:"values,omitempty"`
-	Data    []Point           `json:"data,omitempty"`
-}
-
-// Point struct
-type Point struct {
-	Time  interface{} `json:"time"`
-	Value interface{} `json:"value"`
+	Data    [][]interface{}   `json:"data,omitempty"`
 }
 
 func queryInfluxDB(influxdbs []string, params map[string][]string, ip string, needParse bool) (int, Results, error) {
@@ -378,16 +372,15 @@ func parse(response *Results) *Results {
 	for i, result := range response.Results {
 		for j, serie := range result.Series {
 			for _, pair := range serie.Values {
-				if len(pair) == 2 {
-					if v, ok := pair[1].(float64); ok {
-						var p Point
-						p.Time = pair[0]
-						p.Value = SetPrecision(v, 4)
-						response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
-						response.Results[i].Series[j].Values = nil
-					}
+				if v, ok := pair[1].(float64); ok {
+					var p []interface{}
+					p = append(p, pair[0])
+					p = append(p, SetPrecision(v, 4))
+					response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
 				}
 			}
+			response.Results[i].Series[j].Values = response.Results[i].Series[j].Data
+			response.Results[i].Series[j].Data = nil
 		}
 	}
 	return response

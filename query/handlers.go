@@ -277,7 +277,7 @@ func (s *Service) query2Handler(resp http.ResponseWriter, req *http.Request, _ h
 	p.Set("pretty", "true")
 
 	req.URL.RawQuery = p.Encode()
-	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), false)
+	status, rs, err := queryInfluxDB(influxdbs, p, req.Header.Get("X-Real-IP"), true)
 	if err != nil {
 		errResp(resp, http.StatusInternalServerError, err.Error())
 		return
