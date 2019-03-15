@@ -376,6 +376,11 @@ func parse(response *Results) *Results {
 					var p []interface{}
 					p = append(p, pair[0])
 					p = append(p, SetPrecision(v, 4))
+					if len(pair) > 2 {
+						for _, item := range pair[2:] {
+							p = append(p, item)
+						}
+					}
 					response.Results[i].Series[j].Data = append(response.Results[i].Series[j].Data, p)
 				}
 			}
