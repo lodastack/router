@@ -318,6 +318,54 @@ func (s *Service) saHandler(resp http.ResponseWriter, req *http.Request, _ httpr
 	succResp(resp, "OK", m)
 }
 
+func (s *Service) sa2Handler(resp http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	starttime := req.FormValue("starttime")
+	endtime := req.FormValue("endtime")
+	ns := req.FormValue("ns")
+
+	if ns == "" {
+		ns = config.GetConfig().Com.DefaultAPINameSpace
+	}
+
+	if ns == config.GetConfig().Com.DefaultAPINameSpace {
+		if res := s.c.Get(config.GetConfig().Nsq.TopicPrefix + "." + ns + starttime + endtime); res != nil {
+			succResp(resp, "OK", res)
+			return
+		}
+	}
+
+	ns = config.GetConfig().Nsq.TopicPrefix + "." + ns
+	m, err := s.sa(ns, starttime, endtime)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ms, err := loda.CollectMetrics(ns)
+	if err != nil {
+		errResp(resp, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type SAResp struct {
+		Meta  loda.CollectMetric `json:"meta"`
+		Value float64            `json:"value"`
+	}
+	data := make(map[string]SAResp)
+	for _, collect := range ms {
+		if collect.MeasurementType != "API" {
+			continue
+		}
+		if v, ok := m["RUN."+collect.Name+".alive"]; ok {
+			var tmp SAResp
+			tmp.Meta = collect
+			tmp.Value = v
+			data[collect.Name] = tmp
+		}
+	}
+	succResp(resp, "OK", data)
+}
+
 func (s *Service) sa(ns string, starttime string, endtime string) (map[string]float64, error) {
 	m := make(map[string]float64)
 	st, err := strconv.ParseInt(starttime, 10, 64)
