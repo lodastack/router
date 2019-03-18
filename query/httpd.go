@@ -143,6 +143,7 @@ func (s *Service) initHandler() {
 
 	// custom API
 	s.router.GET("/custom/sa", s.saHandler)
+	s.router.GET("/custom/sa2", s.sa2Handler)
 	s.router.GET("/custom/usage", s.usageHandler)
 	s.router.GET("/custom/linkstats", s.linkstatsHandler)
 }

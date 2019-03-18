@@ -226,6 +226,15 @@ func includeNS(nsPartOne string, dbs []string) (bool, string) {
 type CollectMetric struct {
 	Name     string `json:"name"`
 	Interval string `json:"interval"`
+
+	// for API collect
+	MeasurementType string `json:"measurement_type"`
+	Comment         string `json:"comment"`
+	Address         string `json:"address"`
+	Owner           string `json:"owner"`
+	Level           string `json:"level"`
+	Group           string `json:"group"`
+	PassLine        string `json:"passline"`
 }
 
 // RespCollect is http respon struct
