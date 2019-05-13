@@ -394,7 +394,7 @@ func (s *Service) sa(ns string, starttime string, endtime string) (map[string]fl
 
 	for name := range series["SDK"] {
 		if strings.HasSuffix(name, ".alive") {
-			query := fmt.Sprintf("select * from (SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)) where \"mean\"=0",
+			query := fmt.Sprintf("select * from (SELECT mean(\"value\") FROM \"%s\" WHERE time > %sms and time < %sms GROUP BY time(%s)) where \"mean\"=0 and \"host\" != 'adapter202v34ksy'",
 				name, starttime, endtime, "1m")
 			p := url.Values{}
 			p.Set("q", query)
