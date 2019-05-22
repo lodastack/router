@@ -155,7 +155,7 @@ func writePoints(influxDb string, db string, precision string, data []byte, poin
 	mu.RLock()
 	_, ok := v2Cache[influxDb]
 	mu.RUnlock()
-	if ok || influxDb == "10.90.84.156" {
+	if ok {
 		return WritePointsv2([]string{influxDb}, pointsObj, false)
 	}
 	fullURL := fmt.Sprintf("%s?%s", GetWriteUrl(influxDb), ParseParams(map[string]string{

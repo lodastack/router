@@ -131,7 +131,7 @@ func createDBAndRPv2(influxDB string, db string) (err error) {
 	type bucket struct {
 		Name           string `json:"name"`
 		OrgID          string `json:"orgID"`
-		RetentionRules rr     `json:"retentionRules"`
+		RetentionRules []rr   `json:"retentionRules"`
 		RP             string `json:"rp"`
 	}
 	// we keep 90 days by default, unit second.
@@ -145,10 +145,10 @@ func createDBAndRPv2(influxDB string, db string) (err error) {
 	b := bucket{
 		Name:  db,
 		OrgID: config.GetConfig().TSDB.Org,
-		RetentionRules: rr{
+		RetentionRules: []rr{{
 			EverySeconds: duration,
 			Type:         "expire",
-		},
+		}},
 		RP: "loda",
 	}
 
