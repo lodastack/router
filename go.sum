@@ -51,5 +51,5 @@ gopkg.in/guregu/null.v3 v3.4.0 h1:AOpMtZ85uElRhQjEDsFx21BkXqFPwA7uoJukd4KErIs=
 gopkg.in/guregu/null.v3 v3.4.0/go.mod h1:E4tX2Qe3h7QdL+uZ3a0vqvYwKQsRSQKM5V4YltdgH9Y=
 gopkg.in/ini.v1 v1.38.2 h1:dGcbywv4RufeGeiMycPT/plKB5FtmLKLnWKwBiLhUA4=
 gopkg.in/ini.v1 v1.38.2/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
-gopkg.in/macaron.v1 v1.3.1 h1:zq/TrF4lFz9BGzmDICswcPwm1JSi228iLFp0G+hwMqo=
+gopkg.in/macaron.v1 v1.3.1 h1:IdmGJaqXWUdEeN7fmhHF3voSAMzSthjZmTV4SkdSW/s=
 gopkg.in/macaron.v1 v1.3.1/go.mod h1:PrsiawTWAGZs6wFbT5hlr7SQ2Ns9h7cUVtcUu4lQOVo=

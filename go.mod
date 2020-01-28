@@ -1,5 +1,7 @@
 module github.com/lodastack/router
 
+go 1.13
+
 require (
 	github.com/BurntSushi/toml v0.1.1-0.20141028230038-3883ac1ce943
 	github.com/Unknwon/com v0.0.0-20180617003950-da59b551951d // indirect
