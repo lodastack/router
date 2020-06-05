@@ -10,3 +10,7 @@ NSQ consumer, write points into influxDB cluster
 ## Start router
     
     ./router -c router.conf
+
+## Use docker image
+
+    docker run -d -p8002:8002 lodastack/router
