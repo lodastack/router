@@ -18,13 +18,14 @@ var (
 )
 
 type Config struct {
-	Com       CommonConfig   `toml:"common"`
-	Reg       RegistryConfig `toml:"registry"`
-	Usg       UsageConfig    `toml:"usage"`
-	LinkStats LinkStasConfig `toml:"linkstats"`
-	IDC       []IDCConfig    `toml:"idc"`
-	Nsq       NsqConfig      `toml:"nsq"`
-	Log       LogConfig      `toml:"log"`
+	Com       CommonConfig     `toml:"common"`
+	Reg       RegistryConfig   `toml:"registry"`
+	Usg       UsageConfig      `toml:"usage"`
+	LinkStats LinkStasConfig   `toml:"linkstats"`
+	IDC       []IDCConfig      `toml:"idc"`
+	Nsq       NsqConfig        `toml:"nsq"`
+	TSDB      Influxdbv2Config `toml:"tsdb"`
+	Log       LogConfig        `toml:"log"`
 }
 
 type CommonConfig struct {
@@ -74,6 +75,12 @@ type NsqConfig struct {
 	Lookupds            []string `toml:"lookupds"`
 	Chan                string   `toml:"chan"`
 	TopicPrefix         string   `toml:"topicPrefix"`
+}
+
+type Influxdbv2Config struct {
+	Port  int    `toml:"port"`
+	Org   string `toml:"org"`
+	Token string `toml:"token"`
 }
 
 func (this NsqConfig) GetNsqConfig() *nsq.Config {

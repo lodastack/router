@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/lodastack/router/config"
 	"github.com/lodastack/router/loda"
@@ -138,26 +139,37 @@ func WritePoints(influxDbs []string, pointsObj models.Points) error {
 	if len(influxDbs) > 1 {
 		for _, indexDB := range influxDbs[1:] {
 			limit.Take()
-			go writePoints(indexDB, db, precision, data, pointsCnt)
+			go writePoints(indexDB, db, precision, data, pointsCnt, pointsObj)
 		}
 	}
 	limit.Take()
-	return writePoints(influxDb, db, precision, data, pointsCnt)
+	return writePoints(influxDb, db, precision, data, pointsCnt, pointsObj)
 }
 
-func writePoints(influxDb string, db string, precision string, data []byte, pointsCnt int) error {
+var v2Cache = make(map[string]bool)
+var mu sync.RWMutex
+
+func writePoints(influxDb string, db string, precision string, data []byte, pointsCnt int, pointsObj models.Points) error {
 	defer limit.Release()
-	fullUrl := fmt.Sprintf("%s?%s", GetWriteUrl(influxDb), ParseParams(map[string]string{
+
+	mu.RLock()
+	_, ok := v2Cache[influxDb]
+	mu.RUnlock()
+	if ok {
+		return WritePointsv2([]string{influxDb}, pointsObj, false)
+	}
+	fullURL := fmt.Sprintf("%s?%s", GetWriteUrl(influxDb), ParseParams(map[string]string{
 		"db":        db,
 		"precision": precision,
 	}))
 
 	var err error
 	var resp *requests.Resp
-	if resp, err = requests.PostBytes(fullUrl, data); err != nil {
+	if resp, err = requests.PostBytes(fullURL, data); err != nil {
 		// clean cache, maybe config changed
 		loda.PurgeChan <- db
-		return err
+		return WritePointsv2([]string{influxDb}, pointsObj, true)
+		//return err
 	} else if resp.Status == 500 {
 		return fmt.Errorf("Influxdb returned invalid status code: %v", resp.Status)
 	} else if resp.Status == 204 {
@@ -165,7 +177,7 @@ func writePoints(influxDb string, db string, precision string, data []byte, poin
 		log.Infof("%d return by %s ,handle points %d", resp.Status, influxDb, pointsCnt)
 		return nil
 	} else if (resp.Status == 200 || resp.Status == 404) && strings.Contains(string(resp.Body), "database not found") {
-		err := createDbAndRP([]string{influxDb}, db)
+		err := createDBAndRP([]string{influxDb}, db)
 		if err != nil {
 			return err
 		}
@@ -182,7 +194,7 @@ var rpMap = map[string]string{
 	".mail.it.loda": "500d",
 }
 
-func createDbAndRP(influxDbs []string, db string) (err error) {
+func createDBAndRP(influxDbs []string, db string) (err error) {
 	_, err = Query(influxDbs, map[string]string{
 		"q": fmt.Sprintf("create database \"%s\"", db),
 	}, "")
